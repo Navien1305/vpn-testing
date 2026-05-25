@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Сводная таблица замера{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h4 mb-1">{{ measurement.get_measurement_number_display }}</h1>
+        <div class="text-muted">{{ measurement.form.date|date:"d.m.Y" }} · {{ measurement.form.organization }} · {{ measurement.form.os }}</div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'vpn_form_detail' measurement.form.pk %}">К анкете</a>
+        {% if can_submit %}
+            <a class="btn btn-primary btn-sm" href="{% url 'vpn_measurement_submit' measurement.pk %}">Отправить анкету куратору</a>
+        {% endif %}
+        {% if can_review_measurement_actions %}
+            <a class="btn btn-success btn-sm" href="{% url 'vpn_measurement_confirm' measurement.pk %}">Согласовать замер</a>
+            <a class="btn btn-outline-danger btn-sm" href="{% url 'vpn_measurement_return' measurement.pk %}">Вернуть замер</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="content-card p-3 mb-3">
+    <div class="row g-3">
+        <div class="col-md-3"><strong>Всего VPN:</strong><br>{{ progress.total }}</div>
+        <div class="col-md-3"><strong>Заполнено:</strong><br>{{ progress.filled }}</div>
+        <div class="col-md-3"><strong>Не заполнено:</strong><br>{{ progress.empty }}</div>
+        <div class="col-md-3"><strong>onelostbox.com без VPN:</strong><br>{{ measurement.get_onelostbox_without_vpn_status_display|default:"-" }}</div>
+    </div>
+    {% if measurement.onelostbox_without_vpn_comment %}
+        <div class="alert alert-warning mt-3 mb-0">{{ measurement.onelostbox_without_vpn_comment }}</div>
+    {% endif %}
+</div>
+
+<div class="content-card p-3 summary-table-card">
+    <table class="table table-hover align-middle mb-0 summary-table">
+        <thead class="sticky-table-head">
+        <tr>
+            <th>#</th>
+            <th>VPN</th>
+            <th>onelostbox.com с VPN</th>
+            <th>Instagram</th>
+            <th>YouTube</th>
+            <th class="summary-comment">Комментарий</th>
+            <th>Время</th>
+            {% if can_edit_measurement %}<th></th>{% endif %}
+        </tr>
+        </thead>
+        <tbody>
+        {% for result in results %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                    {% if result.vpn_app.store_url %}
+                        <a href="{{ result.vpn_app.store_url }}" target="_blank" rel="noopener">{{ result.vpn_app.name }}</a>
+                    {% else %}
+                        {{ result.vpn_app.name }}
+                    {% endif %}
+                </td>
+                <td><span class="status-nowrap">{{ result.get_web_with_vpn_status_display|default:"-" }}</span></td>
+                <td><span class="status-nowrap">{{ result.get_instagram_status_display|default:"-" }}</span></td>
+                <td><span class="status-nowrap">{{ result.get_youtube_status_display|default:"-" }}</span></td>
+                <td class="summary-comment">{{ result.comment|default:"-" }}</td>
+                <td class="summary-time">{{ result.measured_at|date:"d.m.Y H:i"|default:"-" }}</td>
+                {% if can_edit_measurement %}
+                    <td class="text-end">
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'vpn_measurement_fill' measurement.pk result.pk %}?next=summary">Редактировать</a>
+                    </td>
+                {% endif %}
+            </tr>
+        {% empty %}
+            <tr><td colspan="{% if can_edit_measurement %}8{% else %}7{% endif %}" class="text-muted">Результатов нет.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

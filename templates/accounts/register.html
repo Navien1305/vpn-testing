@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Регистрация{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="content-card p-4">
+            <h1 class="h4 mb-3">Регистрация</h1>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for field in form %}
+                    {% if field.field.widget.input_type == "radio" %}
+                        <div class="mb-3">
+                            <div class="form-label">{{ field.label }}</div>
+                            {% for choice in field %}
+                                <div class="form-check form-check-inline">
+                                    {{ choice.tag }}
+                                    <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+                                </div>
+                            {% endfor %}
+                            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                {% endif %}
+                <button class="btn btn-primary" type="submit">Отправить на подтверждение</button>
+            </form>
+        </div>
+    </div>
+</div>
+{{ form.organization_city_rules|json_script:"organization-city-rules" }}
+{{ form.organization_operator_rules|json_script:"organization-operator-rules" }}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const fullNameInput = document.querySelector("input[name='full_name']");
+    const usernamePreview = document.querySelector("input[name='username_preview']");
+    const contactInput = document.querySelector("input[name='contact']");
+    const contactTypes = document.querySelectorAll("input[name='contact_type']");
+    const organizationSelect = document.querySelector("select[name='organization']");
+    const citiesSelect = document.querySelector("select[name='cities']");
+    const operatorsSelect = document.querySelector("select[name='mobile_operators']");
+    const organizationCityRulesElement = document.getElementById("organization-city-rules");
+    const organizationCityRules = organizationCityRulesElement ? JSON.parse(organizationCityRulesElement.textContent) : {};
+    const organizationOperatorRulesElement = document.getElementById("organization-operator-rules");
+    const organizationOperatorRules = organizationOperatorRulesElement ? JSON.parse(organizationOperatorRulesElement.textContent) : {};
+
+    function updatePlaceholder() {
+        const checked = document.querySelector("input[name='contact_type']:checked");
+        if (!contactInput || !checked) return;
+        contactInput.placeholder = checked.value === "email" ? "user@example.com" : "+7 (XXX)-XXX-XX-XX";
+    }
+
+    function formatPhone(value) {
+        let digits = value.replace(/\D/g, "");
+        if (digits.length === 10 && !["7", "8"].includes(digits[0])) digits = `7${digits}`;
+        if (digits.length > 0 && digits[0] === "8") digits = `7${digits.slice(1)}`;
+        if (digits.length > 0 && digits[0] !== "7") digits = `7${digits}`;
+        digits = digits.slice(0, 11);
+        const local = digits.slice(1);
+        let result = "+7";
+        if (local.length > 0) result += ` (${local.slice(0, 3)}`;
+        if (local.length >= 3) result += ")";
+        if (local.length > 3) result += `-${local.slice(3, 6)}`;
+        if (local.length > 6) result += `-${local.slice(6, 8)}`;
+        if (local.length > 8) result += `-${local.slice(8, 10)}`;
+        return result;
+    }
+
+    function selectedContactType() {
+        const checked = document.querySelector("input[name='contact_type']:checked");
+        return checked ? checked.value : null;
+    }
+
+    function syncPhoneFormat() {
+        if (!contactInput || selectedContactType() !== "phone" || !contactInput.value.trim()) return;
+        contactInput.value = formatPhone(contactInput.value);
+    }
+
+    function addContactClearButton() {
+        if (!contactInput || contactInput.parentElement.classList.contains("contact-clear-wrapper")) return;
+        const wrapper = document.createElement("div");
+        wrapper.className = "contact-clear-wrapper";
+        contactInput.parentNode.insertBefore(wrapper, contactInput);
+        wrapper.appendChild(contactInput);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "contact-clear-btn";
+        button.setAttribute("aria-label", "Очистить контакт");
+        button.textContent = "×";
+        button.addEventListener("click", function () {
+            contactInput.value = "";
+            contactInput.focus();
+        });
+        wrapper.appendChild(button);
+    }
+
+    function buildUsernamePreview() {
+        if (!fullNameInput || !usernamePreview) return;
+        const parts = fullNameInput.value.trim().split(/\s+/).filter(Boolean);
+        if (parts.length >= 3 && parts[1].length && parts[2].length) {
+            usernamePreview.value = `${parts[0]} ${parts[1][0].toUpperCase()}.${parts[2][0].toUpperCase()}.`;
+        } else {
+            usernamePreview.value = "";
+        }
+    }
+
+    function syncCityOptions() {
+        if (!organizationSelect || !citiesSelect) return;
+        const allowedCityIds = organizationCityRules[organizationSelect.value] || null;
+        Array.from(citiesSelect.options).forEach((option) => {
+            const isAllowed = !allowedCityIds || allowedCityIds.includes(Number(option.value));
+            option.disabled = !isAllowed;
+            option.hidden = !isAllowed;
+            if (!isAllowed) option.selected = false;
+        });
+        if (allowedCityIds) {
+            Array.from(citiesSelect.options).forEach((option) => {
+                option.selected = allowedCityIds.includes(Number(option.value));
+            });
+        }
+    }
+
+    function syncOperatorOptions() {
+        if (!organizationSelect || !operatorsSelect) return;
+        const allowedOperatorIds = organizationOperatorRules[organizationSelect.value] || null;
+        Array.from(operatorsSelect.options).forEach((option) => {
+            const isAllowed = !allowedOperatorIds || allowedOperatorIds.includes(Number(option.value));
+            option.disabled = !isAllowed;
+            option.hidden = !isAllowed;
+            if (!isAllowed) option.selected = false;
+        });
+        if (allowedOperatorIds) {
+            Array.from(operatorsSelect.options).forEach((option) => {
+                option.selected = allowedOperatorIds.includes(Number(option.value));
+            });
+        }
+    }
+
+    if (fullNameInput) fullNameInput.addEventListener("input", buildUsernamePreview);
+    if (contactInput) {
+        addContactClearButton();
+        contactInput.addEventListener("input", syncPhoneFormat);
+        contactInput.addEventListener("blur", syncPhoneFormat);
+    }
+    contactTypes.forEach((item) => item.addEventListener("change", function () {
+        updatePlaceholder();
+        syncPhoneFormat();
+    }));
+    if (organizationSelect) organizationSelect.addEventListener("change", function () {
+        syncCityOptions();
+        syncOperatorOptions();
+    });
+    updatePlaceholder();
+    buildUsernamePreview();
+    syncCityOptions();
+    syncOperatorOptions();
+});
+</script>
+{% endblock %}

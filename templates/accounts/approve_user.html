@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Подтверждение пользователя{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="content-card p-4">
+            <h1 class="h4 mb-3">Подтверждение пользователя: {{ user_obj.username }}</h1>
+            <form method="post">
+                {% csrf_token %}
+                {% for field in form %}
+                    {% if field.field.widget.input_type == "radio" %}
+                        <div class="mb-3">
+                            <div class="form-label">{{ field.label }}</div>
+                            {% for choice in field %}
+                                <div class="form-check form-check-inline">
+                                    {{ choice.tag }}
+                                    <label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% elif field.field.widget.input_type == "checkbox" %}
+                        <div class="form-check mb-3">
+                            {{ field }}
+                            <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        </div>
+                    {% else %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                        </div>
+                    {% endif %}
+                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                {% endfor %}
+                <button class="btn btn-primary" type="submit">Сохранить</button>
+                <button class="btn btn-outline-danger" type="submit" name="action" value="reject" formnovalidate>Отклонить</button>
+                {% if user_obj.pk != user.pk %}
+                    <a class="btn btn-danger" href="{% url 'delete_user' user_obj.pk %}">Удалить</a>
+                {% endif %}
+                <a class="btn btn-outline-secondary" href="{% url 'user_list' %}">Назад</a>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const contactInput = document.querySelector("input[name='contact']");
+    const contactTypes = document.querySelectorAll("input[name='contact_type']");
+    function updatePlaceholder() {
+        const checked = document.querySelector("input[name='contact_type']:checked");
+        if (!contactInput || !checked) return;
+        contactInput.placeholder = checked.value === "email" ? "user@example.com" : "+7 (XXX)-XXX-XX-XX";
+    }
+    function formatPhone(value) {
+        let digits = value.replace(/\D/g, "");
+        if (digits.length === 10 && !["7", "8"].includes(digits[0])) digits = `7${digits}`;
+        if (digits.length > 0 && digits[0] === "8") digits = `7${digits.slice(1)}`;
+        if (digits.length > 0 && digits[0] !== "7") digits = `7${digits}`;
+        digits = digits.slice(0, 11);
+        const local = digits.slice(1);
+        let result = "+7";
+        if (local.length > 0) result += ` (${local.slice(0, 3)}`;
+        if (local.length >= 3) result += ")";
+        if (local.length > 3) result += `-${local.slice(3, 6)}`;
+        if (local.length > 6) result += `-${local.slice(6, 8)}`;
+        if (local.length > 8) result += `-${local.slice(8, 10)}`;
+        return result;
+    }
+    function selectedContactType() {
+        const checked = document.querySelector("input[name='contact_type']:checked");
+        return checked ? checked.value : null;
+    }
+    function syncPhoneFormat() {
+        if (!contactInput || selectedContactType() !== "phone" || !contactInput.value.trim()) return;
+        contactInput.value = formatPhone(contactInput.value);
+    }
+    function addContactClearButton() {
+        if (!contactInput || contactInput.parentElement.classList.contains("contact-clear-wrapper")) return;
+        const wrapper = document.createElement("div");
+        wrapper.className = "contact-clear-wrapper";
+        contactInput.parentNode.insertBefore(wrapper, contactInput);
+        wrapper.appendChild(contactInput);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "contact-clear-btn";
+        button.setAttribute("aria-label", "Очистить контакт");
+        button.textContent = "×";
+        button.addEventListener("click", function () {
+            contactInput.value = "";
+            contactInput.focus();
+        });
+        wrapper.appendChild(button);
+    }
+    if (contactInput) {
+        addContactClearButton();
+        contactInput.addEventListener("input", syncPhoneFormat);
+        contactInput.addEventListener("blur", syncPhoneFormat);
+    }
+    contactTypes.forEach((item) => item.addEventListener("change", function () {
+        updatePlaceholder();
+        syncPhoneFormat();
+    }));
+    updatePlaceholder();
+    syncPhoneFormat();
+});
+</script>
+{% endblock %}

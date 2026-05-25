@@ -1,0 +1,10 @@
+<div class="mb-4">
+    <label class="form-label d-block">{{ title }}</label>
+    <div class="btn-group flex-wrap" role="group">
+        {% for value,label in field.field.choices %}
+            <input type="radio" class="btn-check" name="{{ field.html_name }}" id="{{ field.auto_id }}_{{ forloop.counter }}" value="{{ value }}" {% if field.value == value %}checked{% endif %}>
+            <label class="btn btn-outline-primary mb-1" for="{{ field.auto_id }}_{{ forloop.counter }}">{{ label }}</label>
+        {% endfor %}
+    </div>
+    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+</div>

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Заполнение VPN{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="content-card p-4">
+            <div class="d-flex justify-content-between gap-3 mb-3">
+                <div>
+                    <h1 class="h4 mb-1">{{ result.vpn_app.name }}</h1>
+                    <div class="text-muted">{{ result.vpn_app.package_id }}</div>
+                    {% if result.vpn_app.store_url %}<a href="{{ result.vpn_app.store_url }}" target="_blank" rel="noopener">Открыть в магазине</a>{% endif %}
+                </div>
+                <div class="text-nowrap">{{ index }} из {{ total }}</div>
+            </div>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+                <div class="form-check mb-4">
+                    {{ form.vpn_unable_to_check }}
+                    <label class="form-check-label" for="{{ form.vpn_unable_to_check.id_for_label }}">Невозможно проверить VPN-приложение</label>
+                </div>
+                <div class="dependent-checks">
+                    {% include "questionnaires/partials/status_group.html" with field=form.web_with_vpn_status title="onelostbox.com с VPN" %}
+                    {% include "questionnaires/partials/status_group.html" with field=form.instagram_status title="Instagram" %}
+                    {% include "questionnaires/partials/status_group.html" with field=form.youtube_status title="YouTube" %}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.comment.id_for_label }}">Комментарий</label>
+                    {{ form.comment }}
+                    {% for error in form.comment.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="d-flex flex-wrap justify-content-between gap-2">
+                    <div>
+                        {% if previous_result %}
+                            {% if is_summary_edit %}
+                                <a class="btn btn-outline-secondary" href="{% url 'vpn_measurement_summary' measurement.pk %}">Назад</a>
+                            {% else %}
+                                <a class="btn btn-outline-secondary" href="{% url 'vpn_measurement_fill' measurement.pk previous_result.pk %}">Назад</a>
+                            {% endif %}
+                        {% elif is_summary_edit %}
+                            <a class="btn btn-outline-secondary" href="{% url 'vpn_measurement_summary' measurement.pk %}">Назад</a>
+                        {% else %}
+                            <a class="btn btn-outline-secondary" href="{% url 'vpn_measurement_baseline' measurement.pk %}">Назад</a>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary" name="action" value="save" type="submit">Сохранить</button>
+                        {% if not is_summary_edit %}
+                            <button class="btn btn-primary" name="action" value="next" type="submit">{% if next_result %}Далее{% else %}Завершить{% endif %}</button>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const unable = document.querySelector("input[name='vpn_unable_to_check']");
+    const withVpnWorks = document.querySelector("input[name='web_with_vpn_status'][value='works']");
+    const instagramWorks = document.querySelector("input[name='instagram_status'][value='works']");
+    const youtubeWorks = document.querySelector("input[name='youtube_status'][value='works']");
+    const dependentInputs = document.querySelectorAll("input[name='web_with_vpn_status'], input[name='instagram_status'], input[name='youtube_status']");
+    const socialInputs = document.querySelectorAll("input[name='instagram_status'], input[name='youtube_status']");
+    function syncUnable() {
+        const disabled = unable && unable.checked;
+        dependentInputs.forEach((input) => {
+            input.disabled = disabled;
+            if (disabled) input.checked = false;
+        });
+        if (!disabled) syncWithVpn();
+    }
+    function syncWithVpn() {
+        if (withVpnWorks && withVpnWorks.checked && (!unable || !unable.checked)) {
+            if (instagramWorks) instagramWorks.checked = true;
+            if (youtubeWorks) youtubeWorks.checked = true;
+            socialInputs.forEach((input) => {
+                input.disabled = true;
+            });
+        } else if (!unable || !unable.checked) {
+            socialInputs.forEach((input) => {
+                input.disabled = false;
+            });
+        }
+    }
+    if (unable) unable.addEventListener("change", syncUnable);
+    document.querySelectorAll("input[name='web_with_vpn_status']").forEach((input) => input.addEventListener("change", syncWithVpn));
+    syncUnable();
+    syncWithVpn();
+});
+</script>
+{% endblock %}

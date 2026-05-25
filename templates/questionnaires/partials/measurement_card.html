@@ -1,0 +1,41 @@
+<div class="col-md-6">
+    <div class="content-card p-3 h-100">
+        <h2 class="h5">{{ title }}</h2>
+        {% if summary %}
+            <p class="mb-2"><span class="badge text-bg-secondary">{{ summary.measurement.get_status_display }}</span></p>
+            <p class="mb-2">Всего: {{ summary.progress.total }} · Заполнено: {{ summary.progress.filled }} · Не заполнено: {{ summary.progress.empty }}</p>
+            <div class="progress mb-3" role="progressbar">
+                <div class="progress-bar" style="width: {{ summary.progress.percent }}%">{{ summary.progress.percent }}%</div>
+            </div>
+            {% if summary.measurement.return_comment %}
+                <div class="alert alert-warning py-2">{{ summary.measurement.return_comment }}</div>
+            {% endif %}
+            <div class="d-flex flex-wrap gap-2">
+                {% if can_edit and summary.measurement.status == "draft" %}
+                    <a class="btn btn-outline-primary btn-sm" href="{% url 'vpn_measurement_start' summary.measurement.form.pk summary.measurement.measurement_number %}">
+                        {% if summary.progress.filled == 0 %}Начать тестирование{% else %}Продолжить{% endif %}
+                    </a>
+                {% elif can_edit and summary.measurement.status == "returned" %}
+                    <a class="btn btn-outline-primary btn-sm" href="{% url 'vpn_measurement_start' summary.measurement.form.pk summary.measurement.measurement_number %}">Продолжить</a>
+                {% elif can_review %}
+                    <a class="btn btn-outline-primary btn-sm" href="{% url 'vpn_measurement_summary' summary.measurement.pk %}">Открыть</a>
+                {% elif can_edit %}
+                    <a class="btn btn-outline-primary btn-sm" href="{% url 'vpn_measurement_start' summary.measurement.form.pk summary.measurement.measurement_number %}">Продолжить</a>
+                {% else %}
+                    <a class="btn btn-outline-primary btn-sm" href="{% url 'vpn_measurement_complete' summary.measurement.pk %}">Открыть</a>
+                {% endif %}
+            </div>
+        {% else %}
+            <p class="text-muted">Замер еще не начат.</p>
+            {% if can_edit %}
+                {% if number == 1 %}
+                    <a class="btn btn-outline-primary btn-sm" href="{% url 'vpn_measurement_start' vpn_form.pk 1 %}">Начать тестирование</a>
+                {% elif can_start_second %}
+                    <a class="btn btn-outline-primary btn-sm" href="{% url 'vpn_measurement_start' vpn_form.pk 2 %}">Начать тестирование</a>
+                {% else %}
+                    <button class="btn btn-outline-primary btn-sm" disabled>Начать тестирование</button>
+                {% endif %}
+            {% endif %}
+        {% endif %}
+    </div>
+</div>

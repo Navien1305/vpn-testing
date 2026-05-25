@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}VPN-анкета{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">VPN-анкета от {{ vpn_form.date|date:"d.m.Y" }}</h1>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'vpn_form_list' %}">К списку</a>
+</div>
+
+<div class="content-card p-4 mb-3">
+    <div class="row g-3">
+        <div class="col-md-4"><strong>Организация:</strong><br>{{ vpn_form.organization }}</div>
+        <div class="col-md-4"><strong>Тестировщик:</strong><br>{{ vpn_form.tester }}</div>
+        <div class="col-md-4"><strong>Контакт:</strong><br>{{ vpn_form.contact }}</div>
+        <div class="col-md-4"><strong>Город:</strong><br>{{ vpn_form.city }}</div>
+        <div class="col-md-4"><strong>Оператор:</strong><br>{{ vpn_form.mobile_operator }}</div>
+        <div class="col-md-4"><strong>ОС:</strong><br>{{ vpn_form.os }}</div>
+        <div class="col-md-4"><strong>Устройство:</strong><br>{{ vpn_form.device }}</div>
+        <div class="col-md-4"><strong>Статус:</strong><br><span class="badge text-bg-secondary">{{ vpn_form.get_status_display }}</span></div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% include "questionnaires/partials/measurement_card.html" with number=1 title="Первое тестирование" summary=first_summary %}
+    {% include "questionnaires/partials/measurement_card.html" with number=2 title="Второе тестирование" summary=second_summary %}
+</div>
+
+<div class="d-flex flex-wrap gap-2">
+    {% if can_edit %}
+        {% if not first_summary %}
+            <a class="btn btn-outline-primary" href="{% url 'vpn_measurement_start' vpn_form.pk 1 %}">Начать первое тестирование</a>
+        {% endif %}
+        {% if not second_summary %}
+            {% if can_start_second %}
+                <a class="btn btn-outline-primary" href="{% url 'vpn_measurement_start' vpn_form.pk 2 %}">Начать второе тестирование</a>
+            {% else %}
+                <button class="btn btn-outline-primary" disabled>Второе тестирование</button>
+            {% endif %}
+        {% endif %}
+    {% endif %}
+    {% if can_review_actions %}
+        <a class="btn btn-success" href="{% url 'vpn_form_confirm' vpn_form.pk %}">Подтвердить анкету</a>
+        <a class="btn btn-outline-danger" href="{% url 'vpn_form_return' vpn_form.pk %}">Вернуть анкету</a>
+    {% endif %}
+    {% if can_delete_form %}
+        <a class="btn btn-danger" href="{% url 'vpn_form_delete' vpn_form.pk %}">Удалить анкету</a>
+    {% endif %}
+</div>
+{% endblock %}

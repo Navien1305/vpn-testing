@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Выгрузка VPN-приложений{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="content-card p-4">
+            <h1 class="h4 mb-3">Выгрузка VPN-приложений</h1>
+            <form method="get">
+                <div class="mb-3">
+                    <label class="form-label" for="period-select">Периоды</label>
+                    <select class="form-select" id="period-select" name="period" multiple size="8" required>
+                        {% for option in period_options %}
+                            <option value="{{ option.value }}">{{ option.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-success" type="submit">Выгрузить Excel</button>
+                <a class="btn btn-outline-secondary" href="{% url 'vpn_app_list' %}">Назад</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

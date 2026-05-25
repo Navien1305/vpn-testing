@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Проверка onelostbox.com без VPN{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="content-card p-4">
+            <h1 class="h4 mb-3">Проверка onelostbox.com без VPN</h1>
+            <p class="text-muted">Этот шаг заполняется один раз в начале замера.</p>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+                {% include "questionnaires/partials/status_group.html" with field=form.onelostbox_without_vpn_status title="onelostbox.com без VPN" %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.onelostbox_without_vpn_comment.id_for_label }}">Комментарий</label>
+                    {{ form.onelostbox_without_vpn_comment }}
+                    {% for error in form.onelostbox_without_vpn_comment.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <button class="btn btn-primary" type="submit">Далее</button>
+                <a class="btn btn-outline-secondary" href="{% url 'vpn_form_detail' measurement.form.pk %}">Назад</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

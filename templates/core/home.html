@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+<div class="content-card p-4">
+    <h1 class="h3 mb-3">MVP сервиса сбора результатов тестирования</h1>
+    <p class="text-muted mb-4">
+        Базовый каркас для пользователей, ролей, организаций и справочников. Формы анкет будут добавлены на следующем этапе.
+    </p>
+    {% if user.is_authenticated %}
+        <a class="btn btn-primary" href="{% url 'dashboard' %}">Перейти в личный кабинет</a>
+    {% else %}
+        <a class="btn btn-primary" href="{% url 'register' %}">Зарегистрироваться</a>
+        <a class="btn btn-outline-secondary ms-2" href="{% url 'login' %}">Войти</a>
+    {% endif %}
+</div>
+{% endblock %}

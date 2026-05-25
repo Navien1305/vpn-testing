@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Удаление пользователя{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="content-card p-4">
+            <h1 class="h4 mb-3">Удаление пользователя</h1>
+            <p>Удалить пользователя <strong>{{ user_obj.username }}</strong>?</p>
+            <p class="text-muted">Это действие удалит учетную запись из системы.</p>
+            <form method="post">
+                {% csrf_token %}
+                <button class="btn btn-danger" type="submit">Удалить</button>
+                <a class="btn btn-outline-secondary" href="{% url 'user_list' %}">Отмена</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

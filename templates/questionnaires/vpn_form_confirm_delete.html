@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Удаление анкеты{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="content-card p-4">
+            <h1 class="h4 mb-3">Удаление анкеты</h1>
+            <p>Удалить VPN-анкету от <strong>{{ vpn_form.date|date:"d.m.Y" }}</strong>?</p>
+            <p class="text-muted">Будут удалены анкета, замеры и сохраненные результаты.</p>
+            <form method="post">
+                {% csrf_token %}
+                <button class="btn btn-danger" type="submit">Удалить анкету</button>
+                <a class="btn btn-outline-secondary" href="{% url 'vpn_form_detail' vpn_form.pk %}">Отмена</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

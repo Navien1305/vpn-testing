@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Вход{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="content-card p-4">
+            <h1 class="h5 mb-4">Выполните вход, используя учетную запись организации</h1>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ next }}">
+                <div class="mb-3">
+                    {{ form.organization }}
+                    {% for error in form.organization.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.user_id }}
+                    {% for error in form.user_id.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="mb-3">
+                    <div class="input-group password-input-group">
+                        {{ form.password }}
+                        <button class="btn btn-outline-secondary" id="togglePassword" type="button">Показать</button>
+                    </div>
+                    {% for error in form.password.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                {% endif %}
+                <button class="btn btn-primary" type="submit">Войти</button>
+            </form>
+        </div>
+    </div>
+</div>
+{{ form.login_users_by_organization|json_script:"login-users-by-organization" }}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const organizationSelect = document.querySelector("select[name='organization']");
+    const userSelect = document.querySelector("select[name='user_id']");
+    const usersByOrganizationElement = document.getElementById("login-users-by-organization");
+    const usersByOrganization = usersByOrganizationElement ? JSON.parse(usersByOrganizationElement.textContent) : {};
+    const passwordInput = document.querySelector("input[name='password']");
+    const togglePassword = document.getElementById("togglePassword");
+
+    function enhanceScrollableSelect(select) {
+        if (!select || select.dataset.enhanced === "true") return null;
+        select.dataset.enhanced = "true";
+        select.classList.add("d-none");
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "scroll-select";
+        wrapper.style.position = "relative";
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "form-select scroll-select-toggle text-start";
+
+        const menu = document.createElement("div");
+        menu.className = "scroll-select-menu";
+        menu.hidden = true;
+        Object.assign(menu.style, {
+            position: "absolute",
+            top: "calc(100% + 2px)",
+            left: "0",
+            zIndex: "1050",
+            width: "100%",
+            maxHeight: "220px",
+            overflowY: "auto",
+            padding: "4px 0",
+            border: "1px solid #86b7fe",
+            borderRadius: "0.375rem",
+            background: "#fff",
+            boxShadow: "0 0.5rem 1rem rgba(15, 23, 42, 0.12)",
+        });
+
+        select.parentNode.insertBefore(wrapper, select.nextSibling);
+        wrapper.appendChild(button);
+        wrapper.appendChild(menu);
+
+        function currentLabel() {
+            const selected = select.options[select.selectedIndex];
+            return selected ? selected.textContent : "";
+        }
+
+        function close() {
+            wrapper.classList.remove("is-open");
+            menu.hidden = true;
+        }
+
+        function open() {
+            wrapper.classList.add("is-open");
+            menu.hidden = false;
+        }
+
+        function updateLabel() {
+            button.textContent = currentLabel();
+        }
+
+        function render() {
+            menu.innerHTML = "";
+            Array.from(select.options).forEach((option) => {
+                if (option.hidden || option.disabled) return;
+                const item = document.createElement("button");
+                item.type = "button";
+                item.className = "scroll-select-item";
+                Object.assign(item.style, {
+                    display: "block",
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "0",
+                    borderRadius: "0",
+                    background: option.selected ? "#0d6efd" : "#fff",
+                    color: option.selected ? "#fff" : "#212529",
+                    font: "inherit",
+                    textAlign: "left",
+                    cursor: "pointer",
+                });
+                item.addEventListener("mouseenter", function () {
+                    item.style.background = "#0d6efd";
+                    item.style.color = "#fff";
+                });
+                item.addEventListener("mouseleave", function () {
+                    item.style.background = option.selected ? "#0d6efd" : "#fff";
+                    item.style.color = option.selected ? "#fff" : "#212529";
+                });
+                if (option.selected) item.classList.add("is-selected");
+                item.textContent = option.textContent;
+                item.addEventListener("click", function () {
+                    select.value = option.value;
+                    select.dispatchEvent(new Event("change", { bubbles: true }));
+                    close();
+                    updateLabel();
+                    render();
+                });
+                menu.appendChild(item);
+            });
+            updateLabel();
+        }
+
+        button.addEventListener("click", function () {
+            document.querySelectorAll(".scroll-select.is-open").forEach((item) => {
+                if (item !== wrapper) {
+                    item.classList.remove("is-open");
+                    const itemMenu = item.querySelector(".scroll-select-menu");
+                    if (itemMenu) itemMenu.hidden = true;
+                }
+            });
+            if (wrapper.classList.contains("is-open")) {
+                close();
+            } else {
+                open();
+            }
+        });
+
+        document.addEventListener("click", function (event) {
+            if (!wrapper.contains(event.target)) close();
+        });
+
+        render();
+        return { render, updateLabel };
+    }
+
+    const organizationDropdown = enhanceScrollableSelect(organizationSelect);
+    const userDropdown = enhanceScrollableSelect(userSelect);
+
+    function syncUsers() {
+        if (!organizationSelect || !userSelect) return;
+        const allowedUsers = usersByOrganization[organizationSelect.value] || [];
+        Array.from(userSelect.options).forEach((option) => {
+            if (!option.value) {
+                option.hidden = false;
+                option.disabled = false;
+                return;
+            }
+            const isAllowed = allowedUsers.includes(option.value);
+            option.hidden = !isAllowed;
+            option.disabled = !isAllowed;
+            if (!isAllowed) option.selected = false;
+        });
+        if (userSelect.selectedOptions.length && userSelect.selectedOptions[0].disabled) {
+            userSelect.value = "";
+        }
+        if (userDropdown) userDropdown.render();
+    }
+
+    if (organizationSelect) organizationSelect.addEventListener("change", syncUsers);
+    if (togglePassword && passwordInput) {
+        togglePassword.addEventListener("click", function () {
+            passwordInput.type = passwordInput.type === "password" ? "text" : "password";
+            togglePassword.textContent = passwordInput.type === "password" ? "Показать" : "Скрыть";
+        });
+    }
+    syncUsers();
+});
+</script>
+{% endblock %}

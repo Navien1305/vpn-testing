@@ -1,0 +1,37 @@
+<div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+        <thead>
+        <tr>
+            <th>Порядок</th>
+            <th>Название</th>
+            <th>Package ID / ID</th>
+            <th>Признак</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for item in items %}
+            <tr>
+                <td>{{ item.display_order }}</td>
+                <td>
+                    {% if item.vpn_app.store_url %}
+                        <a href="{{ item.vpn_app.store_url }}" target="_blank" rel="noopener">{{ item.vpn_app.name }}</a>
+                    {% else %}
+                        {{ item.vpn_app.name }}
+                    {% endif %}
+                </td>
+                <td>{{ item.vpn_app.package_id|default:"-" }}</td>
+                <td>{{ item.source_tag|default:"-" }}</td>
+                <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                        <a class="btn btn-outline-primary" href="{% url 'vpn_app_update' item.pk %}">Редактировать</a>
+                        <a class="btn btn-outline-danger" href="{% url 'vpn_app_delete' item.pk %}">Удалить</a>
+                    </div>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="text-muted">Нет записей.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>

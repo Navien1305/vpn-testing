@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Личный кабинет{% endblock %}
+{% block content %}
+<div class="content-card p-4">
+    <h1 class="h4 mb-3">Личный кабинет</h1>
+    <dl class="row mb-0">
+        <dt class="col-sm-3">ФИО</dt>
+        <dd class="col-sm-9">{{ user.full_name }}</dd>
+        <dt class="col-sm-3">Логин</dt>
+        <dd class="col-sm-9">{{ user.username }}</dd>
+        <dt class="col-sm-3">Организация</dt>
+        <dd class="col-sm-9">{{ user.organization|default:"Не указана" }}</dd>
+        <dt class="col-sm-3">Город</dt>
+        <dd class="col-sm-9">
+            {% for city in user.cities.all %}
+                {{ city.name }}{% if not forloop.last %}, {% endif %}
+            {% empty %}
+                Не указан
+            {% endfor %}
+        </dd>
+        <dt class="col-sm-3">Оператор связи</dt>
+        <dd class="col-sm-9">
+            {% for operator in user.mobile_operators.all %}
+                {{ operator.name }}{% if not forloop.last %}, {% endif %}
+            {% empty %}
+                Не указан
+            {% endfor %}
+        </dd>
+        <dt class="col-sm-3">Контакт</dt>
+        <dd class="col-sm-9">{{ user.contact }}</dd>
+        <dt class="col-sm-3">Роль</dt>
+        <dd class="col-sm-9">{{ user.get_role_display }}</dd>
+    </dl>
+</div>
+{% endblock %}

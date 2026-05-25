@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Создание VPN-анкеты{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="content-card p-4">
+            <h1 class="h4 mb-3">Создание VPN-анкеты</h1>
+            <div class="alert alert-info py-2">Дата тестирования будет установлена автоматически: сегодня.</div>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for field in form %}
+                    {% if field.is_hidden %}
+                        {{ field }}
+                    {% else %}
+                        <div class="mb-3{% if field.name == 'device_new' %} device-new-field{% endif %}">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+                <button class="btn btn-primary" type="submit">Создать</button>
+                <a class="btn btn-outline-secondary" href="{% url 'vpn_form_list' %}">Назад</a>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const deviceChoice = document.querySelector("select[name='device_choice']");
+    const deviceNewField = document.querySelector(".device-new-field");
+    function syncDeviceNewField() {
+        if (!deviceChoice || !deviceNewField) return;
+        const shouldShow = deviceChoice.value === "__new__" || deviceChoice.tagName.toLowerCase() !== "select";
+        deviceNewField.hidden = !shouldShow;
+    }
+    if (deviceChoice) deviceChoice.addEventListener("change", syncDeviceNewField);
+    syncDeviceNewField();
+});
+</script>
+{% endblock %}

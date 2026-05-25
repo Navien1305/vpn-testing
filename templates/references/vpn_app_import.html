@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Импорт VPN-приложений{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="content-card p-4">
+            <h1 class="h4 mb-3">Импорт VPN-приложений из Excel</h1>
+            <p class="text-muted">
+                Файл загружается как актуальный набор VPN-приложений на период из имени файла. Приложения той же ОС,
+                которых нет в новом файле, будут переведены в неактивные.
+            </p>
+            <form method="post" enctype="multipart/form-data" novalidate>
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                {% endif %}
+                <button class="btn btn-primary" type="submit">Загрузить</button>
+                <a class="btn btn-outline-secondary" href="{% url 'vpn_app_list' %}">Назад</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
