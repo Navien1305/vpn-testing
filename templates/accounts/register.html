@@ -88,13 +88,20 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!contactInput || contactInput.parentElement.classList.contains("contact-clear-wrapper")) return;
         const wrapper = document.createElement("div");
         wrapper.className = "contact-clear-wrapper";
+        Object.assign(wrapper.style, {position: "relative", display: "block", width: "100%"});
         contactInput.parentNode.insertBefore(wrapper, contactInput);
         wrapper.appendChild(contactInput);
         const button = document.createElement("button");
         button.type = "button";
         button.className = "contact-clear-btn";
+        Object.assign(button.style, {
+            position: "absolute",
+            top: "50%",
+            right: "0.55rem",
+            transform: "translateY(-50%)",
+        });
         button.setAttribute("aria-label", "Очистить контакт");
-        button.textContent = "×";
+        button.innerHTML = "&times;";
         button.addEventListener("click", function () {
             contactInput.value = "";
             contactInput.focus();

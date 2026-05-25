@@ -135,6 +135,8 @@ body {
 
 .contact-clear-wrapper {
     position: relative;
+    display: block;
+    width: 100%;
 }
 
 .contact-clear-input {
@@ -156,6 +158,9 @@ body {
     font-size: 1.25rem;
     line-height: 1;
     transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .contact-clear-btn:hover,

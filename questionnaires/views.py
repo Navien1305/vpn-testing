@@ -43,6 +43,7 @@ def _can_edit_form(user, vpn_form):
     if user.role == UserRole.TESTER:
         return vpn_form.created_by_id == user.id and vpn_form.status in [
             VpnFormStatus.DRAFT,
+            VpnFormStatus.SUBMITTED,
             VpnFormStatus.RETURNED,
         ]
     return False
@@ -65,6 +66,12 @@ def _can_edit_measurement(user, measurement):
             MeasurementStatus.RETURNED,
         ]
     return False
+
+
+def _can_submit_measurement_action(user, measurement):
+    if user.role != UserRole.TESTER or measurement.form.created_by_id != user.id:
+        return False
+    return measurement.status in [MeasurementStatus.DRAFT, MeasurementStatus.RETURNED] and can_submit_measurement(measurement)
 
 
 def _can_review(user, vpn_form):
@@ -183,11 +190,9 @@ def vpn_measurement_start(request, pk, number):
     vpn_form = get_object_or_404(VpnTestForm, pk=pk)
     if not _can_edit_form(request.user, vpn_form):
         raise PermissionDenied
-    if number == 2 and not vpn_form.measurements.filter(
-        measurement_number=1,
-        status__in=[MeasurementStatus.SUBMITTED, MeasurementStatus.CONFIRMED],
-    ).exists():
-        messages.warning(request, "Второе тестирование доступно после отправки первого замера на согласование.")
+    first_measurement = vpn_form.measurements.filter(measurement_number=1).first()
+    if number == 2 and not (first_measurement and can_submit_measurement(first_measurement)):
+        messages.warning(request, "Второе тестирование доступно после заполнения первого.")
         return redirect("vpn_form_detail", pk=vpn_form.pk)
     measurement, _ = VpnMeasurement.objects.get_or_create(form=vpn_form, measurement_number=number)
     if not _can_edit_measurement(request.user, measurement):
@@ -296,7 +301,7 @@ def vpn_measurement_complete(request, pk):
         {
             "measurement": measurement,
             "progress": progress,
-            "can_submit": request.user.role == UserRole.TESTER and _can_edit_measurement(request.user, measurement) and can_submit_measurement(measurement),
+            "can_submit": _can_submit_measurement_action(request.user, measurement),
         },
     )
 
@@ -316,7 +321,7 @@ def vpn_measurement_summary(request, pk):
             "results": results,
             "progress": progress,
             "can_edit_measurement": _can_edit_measurement(request.user, measurement),
-            "can_submit": request.user.role == UserRole.TESTER and _can_edit_measurement(request.user, measurement) and can_submit_measurement(measurement),
+            "can_submit": _can_submit_measurement_action(request.user, measurement),
             "can_review_measurement_actions": _can_review(request.user, measurement.form) and measurement.status == MeasurementStatus.SUBMITTED,
         },
     )
@@ -325,7 +330,7 @@ def vpn_measurement_summary(request, pk):
 @approved_required
 def vpn_measurement_submit(request, pk):
     measurement = get_object_or_404(VpnMeasurement.objects.select_related("form"), pk=pk)
-    if not _can_edit_measurement(request.user, measurement):
+    if request.user.role != UserRole.TESTER or measurement.form.created_by_id != request.user.id:
         raise PermissionDenied
     if not can_submit_measurement(measurement):
         messages.error(request, "Нельзя отправить замер: заполнены не все VPN или отсутствует обязательный комментарий.")
