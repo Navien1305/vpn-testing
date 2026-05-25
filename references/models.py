@@ -73,7 +73,7 @@ class VpnApp(TimeStampedModel):
     name = models.CharField("Название", max_length=255)
     os = models.CharField("ОС", max_length=20, choices=OperatingSystem.choices)
     package_id = models.CharField("Package ID", max_length=255, blank=True)
-    store_url = models.URLField("Ссылка в сторе", blank=True)
+    store_url = models.URLField("Ссылка в сторе", max_length=1000, blank=True)
 
     class Meta:
         verbose_name = "VPN-приложение"
