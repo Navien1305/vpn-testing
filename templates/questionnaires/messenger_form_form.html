@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Создание анкеты мессенджеров{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="content-card p-4">
+            <h1 class="h4 mb-3">Создание анкеты мессенджеров</h1>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+                {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+                <button class="btn btn-primary" type="submit">Создать</button>
+                <a class="btn btn-outline-secondary" href="{% url 'messenger_form_list' %}">Назад</a>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const deviceChoice = document.querySelector("select[name='device_choice']");
+    const deviceNew = document.querySelector("input[name='device_new']");
+    if (!deviceChoice || !deviceNew || deviceChoice.type === "hidden") return;
+    const deviceNewBlock = deviceNew.closest(".mb-3");
+
+    function syncDeviceNew() {
+        const show = deviceChoice.value === "__new__";
+        if (deviceNewBlock) deviceNewBlock.classList.toggle("d-none", !show);
+        if (!show) deviceNew.value = "";
+    }
+
+    deviceChoice.addEventListener("change", syncDeviceNew);
+    syncDeviceNew();
+});
+</script>
+{% endblock %}

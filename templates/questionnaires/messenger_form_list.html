@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}VPN-анкеты{% endblock %}
+{% block title %}Анкеты мессенджеров{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 mb-0">VPN-анкеты</h1>
+    <h1 class="h4 mb-0">Анкеты мессенджеров</h1>
     {% if user.role != "reader" %}
-        <a class="btn btn-primary btn-sm" href="{% url 'vpn_form_create' %}">Создать</a>
+        <a class="btn btn-primary btn-sm" href="{% url 'messenger_form_create' %}">Создать</a>
     {% endif %}
 </div>
 {% include "questionnaires/partials/form_filters.html" %}
@@ -20,12 +20,10 @@
                 <td>{{ item.mobile_operator }}</td>
                 <td>{{ item.os }}</td>
                 <td><span class="badge text-bg-secondary">{{ item.get_status_display }}</span></td>
-                <td class="text-end">
-                    <a class="btn btn-sm btn-primary" href="{% url 'vpn_form_detail' item.pk %}">Открыть</a>
-                </td>
+                <td class="text-end"><a class="btn btn-primary btn-sm" href="{% url 'messenger_form_detail' item.pk %}">Открыть</a></td>
             </tr>
         {% empty %}
-            <tr><td colspan="7" class="text-muted">VPN-анкет пока нет.</td></tr>
+            <tr><td colspan="7" class="text-muted">Анкет пока нет.</td></tr>
         {% endfor %}
         </tbody>
     </table>

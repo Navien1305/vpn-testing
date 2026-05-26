@@ -1,8 +1,8 @@
 from django.utils import timezone
 
-from references.models import VpnAppPeriod
+from references.models import Messenger, VpnAppPeriod
 
-from .models import CheckStatus, VpnFormStatus, VpnMeasurementResult
+from .models import CheckStatus, MessengerFormStatus, MessengerTestResult, VpnFormStatus, VpnMeasurementResult
 
 
 def log_action(action, user, obj, details=""):
@@ -89,3 +89,39 @@ def form_measurement_summary(vpn_form):
 
 def available_review_forms(queryset):
     return queryset.filter(status=VpnFormStatus.SUBMITTED)
+
+
+def ensure_messenger_results(form):
+    for messenger in Messenger.objects.filter(is_active=True).order_by("display_order", "name"):
+        MessengerTestResult.objects.get_or_create(form=form, messenger=messenger)
+
+
+def ordered_messenger_results(form):
+    ensure_messenger_results(form)
+    active_messengers = list(Messenger.objects.filter(is_active=True).order_by("display_order", "name"))
+    results_by_messenger_id = {
+        result.messenger_id: result
+        for result in MessengerTestResult.objects.select_related("messenger").filter(form=form)
+    }
+    return [results_by_messenger_id[messenger.id] for messenger in active_messengers if messenger.id in results_by_messenger_id]
+
+
+def messenger_form_progress(form):
+    results = ordered_messenger_results(form)
+    total = len(results)
+    filled = sum(1 for result in results if result.is_filled)
+    return {
+        "total": total,
+        "filled": filled,
+        "empty": total - filled,
+        "percent": round((filled / total) * 100) if total else 0,
+    }
+
+
+def can_submit_messenger_form(form):
+    progress = messenger_form_progress(form)
+    return progress["total"] > 0 and progress["empty"] == 0
+
+
+def available_messenger_review_forms(queryset):
+    return queryset.filter(status=MessengerFormStatus.SUBMITTED)

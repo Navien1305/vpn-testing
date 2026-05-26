@@ -8,19 +8,36 @@ from django.utils import timezone
 from accounts.decorators import approved_required
 from accounts.models import UserRole
 
-from .forms import ReturnFormForm, ReturnMeasurementForm, VpnMeasurementBaselineForm, VpnMeasurementResultForm, VpnTestFormCreateForm
-from .models import CheckStatus, MeasurementStatus, TesterDevice, VpnFormStatus, VpnMeasurement, VpnTestForm
+from .forms import (
+    MessengerTestFormCreateForm,
+    MessengerTestResultForm,
+    ReturnFormForm,
+    ReturnMeasurementForm,
+    ReturnMessengerForm,
+    VpnMeasurementBaselineForm,
+    VpnMeasurementResultForm,
+    VpnTestFormCreateForm,
+)
+from .models import CheckStatus, MeasurementStatus, MessengerFormStatus, MessengerTestForm, TesterDevice, VpnFormStatus, VpnMeasurement, VpnTestForm
 from .services import (
+    available_messenger_review_forms,
     available_review_forms,
+    can_submit_messenger_form,
     can_submit_measurement,
     ensure_measurement_results,
+    ensure_messenger_results,
     form_measurement_summary,
     log_action,
     mark_all_results_available,
+    messenger_form_progress,
     measurement_progress,
+    ordered_messenger_results,
     ordered_results,
     update_form_status_after_measurement_submit,
 )
+
+
+SUBMISSION_TO_REVIEW_ENABLED = False
 
 
 def _is_admin(user):
@@ -69,6 +86,8 @@ def _can_edit_measurement(user, measurement):
 
 
 def _can_submit_measurement_action(user, measurement):
+    if not SUBMISSION_TO_REVIEW_ENABLED:
+        return False
     if user.role != UserRole.TESTER or measurement.form.created_by_id != user.id:
         return False
     return measurement.status in [MeasurementStatus.DRAFT, MeasurementStatus.RETURNED] and can_submit_measurement(measurement)
@@ -107,11 +126,111 @@ def _forms_for_user(user):
     return qs.filter(created_by=user)
 
 
+def _can_view_messenger_form(user, form):
+    if _is_admin(user) or user.role == UserRole.READER:
+        return True
+    if user.role == UserRole.COORDINATOR:
+        return user.organization_id == form.organization_id
+    return form.created_by_id == user.id
+
+
+def _can_edit_messenger_form(user, form):
+    if _is_admin(user):
+        return True
+    if user.role == UserRole.COORDINATOR:
+        return user.organization_id == form.organization_id
+    if user.role == UserRole.TESTER:
+        return form.created_by_id == user.id and form.status in [MessengerFormStatus.DRAFT, MessengerFormStatus.RETURNED]
+    return False
+
+
+def _can_review_messenger_form(user, form):
+    if _is_admin(user):
+        return True
+    return user.role == UserRole.COORDINATOR and user.organization_id == form.organization_id
+
+
+def _messenger_forms_for_user(user):
+    qs = MessengerTestForm.objects.select_related("organization", "city", "mobile_operator", "created_by").all()
+    if _is_admin(user) or user.role == UserRole.READER:
+        return qs
+    if user.role == UserRole.COORDINATOR:
+        return qs.filter(organization=user.organization)
+    return qs.filter(created_by=user)
+
+
+def _related_messenger_form(vpn_form):
+    return (
+        MessengerTestForm.objects.filter(
+            date=vpn_form.date,
+            organization=vpn_form.organization,
+            city=vpn_form.city,
+            mobile_operator=vpn_form.mobile_operator,
+            os=vpn_form.os,
+        )
+        .select_related("organization", "city", "mobile_operator", "created_by", "confirmed_by")
+        .first()
+    )
+
+
+FORM_SORT_OPTIONS = {
+    "-date": "Дата: новые сверху",
+    "date": "Дата: старые сверху",
+    "organization__name": "Организация: А-Я",
+    "city__name": "Город: А-Я",
+    "mobile_operator__name": "Оператор: А-Я",
+    "os": "ОС: А-Я",
+    "status": "Статус: А-Я",
+}
+
+
+def _filter_form_queryset(qs, params, status_choices):
+    if params.get("date_from"):
+        qs = qs.filter(date__gte=params["date_from"])
+    if params.get("date_to"):
+        qs = qs.filter(date__lte=params["date_to"])
+    if params.get("organization"):
+        qs = qs.filter(organization_id=params["organization"])
+    if params.get("city"):
+        qs = qs.filter(city_id=params["city"])
+    if params.get("mobile_operator"):
+        qs = qs.filter(mobile_operator_id=params["mobile_operator"])
+    if params.get("os"):
+        qs = qs.filter(os=params["os"])
+    if params.get("status"):
+        qs = qs.filter(status=params["status"])
+    ordering = params.get("sort") if params.get("sort") in FORM_SORT_OPTIONS else "-date"
+    return qs.order_by(ordering, "-created_at")
+
+
+def _form_filter_context(base_qs, params, status_choices):
+    return {
+        "filters": params,
+        "sort_options": FORM_SORT_OPTIONS,
+        "status_options": status_choices,
+        "organizations": base_qs.order_by("organization__name")
+        .values_list("organization_id", "organization__name")
+        .distinct(),
+        "cities": base_qs.order_by("city__name").values_list("city_id", "city__name").distinct(),
+        "mobile_operators": base_qs.order_by("mobile_operator__name")
+        .values_list("mobile_operator_id", "mobile_operator__name")
+        .distinct(),
+        "os_options": base_qs.order_by("os").values_list("os", flat=True).distinct(),
+    }
+
+
 @approved_required
 def vpn_form_list(request):
-    forms = _forms_for_user(request.user).order_by("-date", "-created_at")
+    base_qs = _forms_for_user(request.user)
+    filters = request.GET.copy()
+    forms = _filter_form_queryset(base_qs, filters, VpnFormStatus.choices)
     deletable_form_ids = {vpn_form.pk for vpn_form in forms if _can_delete_form(request.user, vpn_form)}
-    return render(request, "questionnaires/vpn_form_list.html", {"forms": forms, "deletable_form_ids": deletable_form_ids})
+    context = {
+        "forms": forms,
+        "deletable_form_ids": deletable_form_ids,
+        **_form_filter_context(base_qs, filters, VpnFormStatus.choices),
+    }
+    return render(request, "questionnaires/vpn_form_list.html", context)
 
 
 @approved_required
@@ -155,6 +274,8 @@ def vpn_form_detail(request, pk):
     summaries = form_measurement_summary(vpn_form)
     first_measurement = summaries.get(1, {}).get("measurement") if summaries.get(1) else None
     can_start_second = bool(first_measurement and can_submit_measurement(first_measurement))
+    messenger_form = _related_messenger_form(vpn_form)
+    messenger_progress = messenger_form_progress(messenger_form) if messenger_form else None
     return render(
         request,
         "questionnaires/vpn_form_detail.html",
@@ -169,6 +290,11 @@ def vpn_form_detail(request, pk):
             "can_review_actions": False,
             "can_read_only": request.user.role == UserRole.READER,
             "can_delete_form": _can_delete_form(request.user, vpn_form),
+            "messenger_form": messenger_form,
+            "messenger_progress": messenger_progress,
+            "can_create_messenger_from_vpn": not messenger_form and _can_edit_form(request.user, vpn_form),
+            "can_edit_messenger": messenger_form and _can_edit_messenger_form(request.user, messenger_form),
+            "can_review_messenger_actions": messenger_form and _can_review_messenger_form(request.user, messenger_form) and messenger_form.status == MessengerFormStatus.SUBMITTED,
         },
     )
 
@@ -330,6 +456,9 @@ def vpn_measurement_summary(request, pk):
 @approved_required
 def vpn_measurement_submit(request, pk):
     measurement = get_object_or_404(VpnMeasurement.objects.select_related("form"), pk=pk)
+    if not SUBMISSION_TO_REVIEW_ENABLED:
+        messages.info(request, "Отправка анкет на согласование временно отключена.")
+        return redirect("vpn_measurement_complete", pk=measurement.pk)
     if request.user.role != UserRole.TESTER or measurement.form.created_by_id != request.user.id:
         raise PermissionDenied
     if not can_submit_measurement(measurement):
@@ -351,6 +480,9 @@ def vpn_measurement_submit(request, pk):
 @approved_required
 def vpn_form_submit_single_measurement(request, pk):
     vpn_form = get_object_or_404(VpnTestForm, pk=pk)
+    if not SUBMISSION_TO_REVIEW_ENABLED:
+        messages.info(request, "Отправка анкет на согласование временно отключена.")
+        return redirect("vpn_form_detail", pk=vpn_form.pk)
     if not _can_edit_form(request.user, vpn_form):
         raise PermissionDenied
     first = vpn_form.measurements.filter(measurement_number=1, status__in=[MeasurementStatus.SUBMITTED, MeasurementStatus.CONFIRMED]).first()
@@ -464,3 +596,244 @@ def vpn_form_return(request, pk):
     else:
         form = ReturnFormForm()
     return render(request, "questionnaires/vpn_return.html", {"form": form, "title": "Возврат анкеты"})
+
+
+@approved_required
+def messenger_form_list(request):
+    base_qs = _messenger_forms_for_user(request.user)
+    filters = request.GET.copy()
+    forms = _filter_form_queryset(base_qs, filters, MessengerFormStatus.choices)
+    context = {
+        "forms": forms,
+        **_form_filter_context(base_qs, filters, MessengerFormStatus.choices),
+    }
+    return render(request, "questionnaires/messenger_form_list.html", context)
+
+
+@approved_required
+def messenger_form_create(request):
+    if request.user.role == UserRole.READER:
+        raise PermissionDenied
+    if not request.user.organization:
+        messages.error(request, "У пользователя не указана организация.")
+        return redirect("messenger_form_list")
+    if request.method == "POST":
+        form = MessengerTestFormCreateForm(request.POST, user=request.user)
+        if form.is_valid():
+            messenger_form = form.save(commit=False)
+            messenger_form.organization = request.user.organization
+            messenger_form.date = timezone.localdate()
+            messenger_form.tester = request.user.full_name
+            messenger_form.contact = request.user.contact
+            messenger_form.created_by = request.user
+            messenger_form.device = form.selected_device()
+            try:
+                messenger_form.save()
+            except IntegrityError:
+                form.add_error(None, "Анкета мессенджеров с такими параметрами уже существует.")
+            else:
+                TesterDevice.objects.get_or_create(tester=request.user, name=messenger_form.device)
+                ensure_messenger_results(messenger_form)
+                messages.success(request, "Анкета мессенджеров создана.")
+                return redirect("messenger_form_detail", pk=messenger_form.pk)
+    else:
+        form = MessengerTestFormCreateForm(user=request.user)
+    return render(request, "questionnaires/messenger_form_form.html", {"form": form})
+
+
+@approved_required
+def messenger_form_create_from_vpn(request, vpn_pk):
+    vpn_form = get_object_or_404(VpnTestForm, pk=vpn_pk)
+    if not _can_edit_form(request.user, vpn_form):
+        raise PermissionDenied
+    messenger_form, created = MessengerTestForm.objects.get_or_create(
+        date=vpn_form.date,
+        organization=vpn_form.organization,
+        city=vpn_form.city,
+        mobile_operator=vpn_form.mobile_operator,
+        os=vpn_form.os,
+        defaults={
+            "tester": vpn_form.tester,
+            "device": vpn_form.device,
+            "contact": vpn_form.contact,
+            "created_by": request.user,
+        },
+    )
+    ensure_messenger_results(messenger_form)
+    if created:
+        messages.success(request, "Анкета мессенджеров создана.")
+    return redirect("messenger_form_start", pk=messenger_form.pk)
+
+
+@approved_required
+def messenger_form_detail(request, pk):
+    messenger_form = get_object_or_404(
+        MessengerTestForm.objects.select_related("organization", "city", "mobile_operator", "created_by", "confirmed_by"),
+        pk=pk,
+    )
+    if not _can_view_messenger_form(request.user, messenger_form):
+        raise PermissionDenied
+    results = ordered_messenger_results(messenger_form)
+    progress = messenger_form_progress(messenger_form)
+    return render(
+        request,
+        "questionnaires/messenger_form_detail.html",
+        {
+            "messenger_form": messenger_form,
+            "results": results,
+            "progress": progress,
+            "can_edit": _can_edit_messenger_form(request.user, messenger_form),
+            "can_submit": False,
+            "can_review_actions": _can_review_messenger_form(request.user, messenger_form) and messenger_form.status == MessengerFormStatus.SUBMITTED,
+            "can_read_only": request.user.role == UserRole.READER,
+        },
+    )
+
+
+@approved_required
+def messenger_form_start(request, pk):
+    messenger_form = get_object_or_404(MessengerTestForm, pk=pk)
+    if not _can_edit_messenger_form(request.user, messenger_form):
+        raise PermissionDenied
+    results = ordered_messenger_results(messenger_form)
+    if not results:
+        messages.error(request, "Нет активных мессенджеров в справочнике.")
+        return redirect("messenger_form_detail", pk=messenger_form.pk)
+    first_empty = next((result for result in results if not result.is_filled), None)
+    target = first_empty or results[0]
+    return redirect("messenger_form_fill", pk=messenger_form.pk, result_id=target.pk)
+
+
+@approved_required
+def messenger_form_fill(request, pk, result_id):
+    messenger_form = get_object_or_404(MessengerTestForm, pk=pk)
+    if not _can_edit_messenger_form(request.user, messenger_form):
+        raise PermissionDenied
+    results = ordered_messenger_results(messenger_form)
+    result = get_object_or_404(messenger_form.results.select_related("messenger"), pk=result_id)
+    index = [item.pk for item in results].index(result.pk)
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "previous" and index > 0:
+            return redirect("messenger_form_fill", pk=messenger_form.pk, result_id=results[index - 1].pk)
+        form = MessengerTestResultForm(request.POST, instance=result)
+        if form.is_valid():
+            result = form.save()
+            if action == "save":
+                messages.success(request, "Результат сохранен.")
+                return redirect("messenger_form_fill", pk=messenger_form.pk, result_id=result.pk)
+            if index + 1 < len(results):
+                return redirect("messenger_form_fill", pk=messenger_form.pk, result_id=results[index + 1].pk)
+            return redirect("messenger_form_complete", pk=messenger_form.pk)
+    else:
+        form = MessengerTestResultForm(instance=result)
+
+    return render(
+        request,
+        "questionnaires/messenger_form_fill.html",
+        {
+            "messenger_form": messenger_form,
+            "result": result,
+            "form": form,
+            "index": index + 1,
+            "total": len(results),
+            "previous_result": results[index - 1] if index > 0 else None,
+        },
+    )
+
+
+@approved_required
+def messenger_form_complete(request, pk):
+    messenger_form = get_object_or_404(MessengerTestForm, pk=pk)
+    if not _can_view_messenger_form(request.user, messenger_form):
+        raise PermissionDenied
+    progress = messenger_form_progress(messenger_form)
+    return render(
+        request,
+        "questionnaires/messenger_form_complete.html",
+        {
+            "messenger_form": messenger_form,
+            "progress": progress,
+            "can_submit": False,
+        },
+    )
+
+
+@approved_required
+def messenger_form_submit(request, pk):
+    messenger_form = get_object_or_404(MessengerTestForm, pk=pk)
+    if not SUBMISSION_TO_REVIEW_ENABLED:
+        messages.info(request, "Отправка анкет на согласование временно отключена.")
+        return redirect("messenger_form_detail", pk=messenger_form.pk)
+    if request.user.role != UserRole.TESTER or messenger_form.created_by_id != request.user.id:
+        raise PermissionDenied
+    if not _can_edit_messenger_form(request.user, messenger_form):
+        raise PermissionDenied
+    if not can_submit_messenger_form(messenger_form):
+        messages.error(request, "Нельзя отправить анкету: заполнены не все мессенджеры или отсутствует обязательный комментарий.")
+        return redirect("messenger_form_complete", pk=messenger_form.pk)
+    messenger_form.status = MessengerFormStatus.SUBMITTED
+    messenger_form.submitted_at = timezone.now()
+    messenger_form.return_comment = ""
+    messenger_form.returned_at = None
+    messenger_form.confirmed_at = None
+    messenger_form.confirmed_by = None
+    messenger_form.save(update_fields=["status", "submitted_at", "return_comment", "returned_at", "confirmed_at", "confirmed_by", "updated_at"])
+    log_action("messenger_form_submitted", request.user, messenger_form)
+    messages.success(request, "Анкета мессенджеров отправлена на проверку.")
+    return redirect("messenger_form_detail", pk=messenger_form.pk)
+
+
+@approved_required
+def messenger_review_list(request):
+    if request.user.role not in [UserRole.COORDINATOR, UserRole.ADMIN] and not request.user.is_superuser:
+        raise PermissionDenied
+    forms = available_messenger_review_forms(_messenger_forms_for_user(request.user)).order_by("-date", "-submitted_at")
+    return render(request, "questionnaires/messenger_review_list.html", {"forms": forms})
+
+
+@approved_required
+def messenger_form_review(request, pk):
+    messenger_form = get_object_or_404(MessengerTestForm, pk=pk)
+    if not _can_review_messenger_form(request.user, messenger_form):
+        raise PermissionDenied
+    return messenger_form_detail(request, pk)
+
+
+@approved_required
+def messenger_form_confirm(request, pk):
+    messenger_form = get_object_or_404(MessengerTestForm, pk=pk)
+    if not _can_review_messenger_form(request.user, messenger_form):
+        raise PermissionDenied
+    if messenger_form.status != MessengerFormStatus.SUBMITTED:
+        messages.info(request, "Подтвердить можно только отправленную анкету.")
+        return redirect("messenger_form_detail", pk=messenger_form.pk)
+    messenger_form.status = MessengerFormStatus.CONFIRMED
+    messenger_form.confirmed_by = request.user
+    messenger_form.confirmed_at = timezone.now()
+    messenger_form.save(update_fields=["status", "confirmed_by", "confirmed_at", "updated_at"])
+    messages.success(request, "Анкета мессенджеров подтверждена.")
+    return redirect("messenger_form_detail", pk=messenger_form.pk)
+
+
+@approved_required
+def messenger_form_return(request, pk):
+    messenger_form = get_object_or_404(MessengerTestForm, pk=pk)
+    if not _can_review_messenger_form(request.user, messenger_form):
+        raise PermissionDenied
+    if messenger_form.status != MessengerFormStatus.SUBMITTED:
+        messages.info(request, "Вернуть можно только отправленную анкету.")
+        return redirect("messenger_form_detail", pk=messenger_form.pk)
+    if request.method == "POST":
+        form = ReturnMessengerForm(request.POST, instance=messenger_form)
+        if form.is_valid():
+            messenger_form = form.save(commit=False)
+            messenger_form.status = MessengerFormStatus.RETURNED
+            messenger_form.returned_at = timezone.now()
+            messenger_form.save(update_fields=["status", "return_comment", "returned_at", "updated_at"])
+            messages.warning(request, "Анкета мессенджеров возвращена на доработку.")
+            return redirect("messenger_form_detail", pk=messenger_form.pk)
+    else:
+        form = ReturnMessengerForm(instance=messenger_form)
+    return render(request, "questionnaires/vpn_return.html", {"form": form, "title": "Возврат анкеты мессенджеров"})

@@ -213,3 +213,22 @@ body {
     background: #0d6efd;
     color: #fff;
 }
+
+.messenger-time-field {
+    max-width: 170px;
+}
+
+.messenger-time-input {
+    width: 170px !important;
+    max-width: 100%;
+}
+
+@media (max-width: 576px) {
+    .messenger-time-field {
+        max-width: none;
+    }
+
+    .messenger-time-input {
+        width: 100% !important;
+    }
+}

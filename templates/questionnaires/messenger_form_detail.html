@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Анкета мессенджеров{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Анкета мессенджеров от {{ messenger_form.date|date:"d.m.Y" }}</h1>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'messenger_form_list' %}">К списку</a>
+</div>
+
+<div class="content-card p-4 mb-3">
+    <div class="row g-3">
+        <div class="col-md-4"><strong>Организация:</strong><br>{{ messenger_form.organization }}</div>
+        <div class="col-md-4"><strong>Тестировщик:</strong><br>{{ messenger_form.tester }}</div>
+        <div class="col-md-4"><strong>Контакт:</strong><br>{{ messenger_form.contact|default:"-" }}</div>
+        <div class="col-md-4"><strong>Город:</strong><br>{{ messenger_form.city }}</div>
+        <div class="col-md-4"><strong>Оператор:</strong><br>{{ messenger_form.mobile_operator }}</div>
+        <div class="col-md-4"><strong>ОС:</strong><br>{{ messenger_form.os }}</div>
+        <div class="col-md-4"><strong>Устройство:</strong><br>{{ messenger_form.device }}</div>
+        <div class="col-md-4"><strong>Статус:</strong><br><span class="badge text-bg-secondary">{{ messenger_form.get_status_display }}</span></div>
+    </div>
+    {% if messenger_form.return_comment %}
+        <div class="alert alert-warning mt-3 mb-0">{{ messenger_form.return_comment }}</div>
+    {% endif %}
+</div>
+
+<div class="content-card p-3 mb-3">
+    <div class="row g-3 align-items-center">
+        <div class="col-md-3"><strong>Всего:</strong><br>{{ progress.total }}</div>
+        <div class="col-md-3"><strong>Заполнено:</strong><br>{{ progress.filled }}</div>
+        <div class="col-md-3"><strong>Не заполнено:</strong><br>{{ progress.empty }}</div>
+        <div class="col-md-3">
+            <div class="progress"><div class="progress-bar" style="width: {{ progress.percent }}%">{{ progress.percent }}%</div></div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+    {% if can_edit %}
+        <a class="btn btn-outline-primary" href="{% url 'messenger_form_start' messenger_form.pk %}">
+            {% if progress.filled %}Продолжить тестирование{% else %}Начать тестирование{% endif %}
+        </a>
+    {% endif %}
+    {% if can_submit %}
+        <a class="btn btn-primary" href="{% url 'messenger_form_submit' messenger_form.pk %}">Отправить анкету на проверку</a>
+    {% endif %}
+    {% if can_review_actions %}
+        <a class="btn btn-success" href="{% url 'messenger_form_confirm' messenger_form.pk %}">Подтвердить анкету</a>
+        <a class="btn btn-outline-danger" href="{% url 'messenger_form_return' messenger_form.pk %}">Вернуть анкету</a>
+    {% endif %}
+</div>
+
+<div class="content-card p-3 table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead><tr><th>Мессенджер</th><th>Сообщение</th><th>Время</th><th>Файл, МБ</th><th>Скорость, сек</th><th>Аудиозвонок</th><th>Комментарий</th><th></th></tr></thead>
+        <tbody>
+        {% for result in results %}
+            <tr>
+                <td>{{ result.messenger.name }}</td>
+                <td>{{ result.get_message_send_status_display|default:"-" }}</td>
+                <td>{{ result.message_sent_at|time:"H:i"|default:"-" }}</td>
+                <td>{{ result.file_size_mb|default:"-" }}</td>
+                <td>{{ result.file_send_speed_sec|default:"-" }}</td>
+                <td>{{ result.get_audio_call_status_display|default:"-" }}</td>
+                <td>{{ result.comment|default:"-" }}</td>
+                <td class="text-end">
+                    {% if can_edit %}
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'messenger_form_fill' messenger_form.pk result.pk %}">Редактировать</a>
+                    {% endif %}
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="8" class="text-muted">Нет активных мессенджеров.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

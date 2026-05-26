@@ -7,6 +7,26 @@
     <title>{% block title %}Сервис тестирования{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="{% static 'css/styles.css' %}" rel="stylesheet">
+    <style>
+        .errorlist {
+            margin: 0.25rem 0 0;
+            padding-left: 1.1rem;
+        }
+
+        .alert .errorlist {
+            margin: 0;
+            padding-left: 1rem;
+        }
+
+        .alert-danger:has(.errorlist) {
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .alert-danger:has(.errorlist) li {
+            margin: 0;
+        }
+    </style>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -17,19 +37,59 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav me-auto">
-                <li class="nav-item"><a class="nav-link" href="{% url 'home' %}">Главная</a></li>
+                {% with current_url=request.resolver_match.url_name %}
+                <li class="nav-item">
+                    <a class="nav-link {% if current_url == 'home' %}active{% endif %}" href="{% url 'home' %}">Главная</a>
+                </li>
                 {% if user.is_authenticated %}
-                    <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}">Личный кабинет</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{% url 'vpn_form_list' %}">VPN-анкеты</a></li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if current_url == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Личный кабинет</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if current_url|slice:':4' == 'vpn_' %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            VPN
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item {% if current_url == 'vpn_form_list' %}active{% endif %}" href="{% url 'vpn_form_list' %}">VPN-анкеты</a>
+                            </li>
+                            {% if user.role == "coordinator" or user.role == "admin" or user.is_superuser %}
+                                <li>
+                                    <a class="dropdown-item {% if current_url == 'vpn_review_list' %}active{% endif %}" href="{% url 'vpn_review_list' %}">Проверка VPN</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if current_url|slice:':10' == 'messenger_' %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Мессенджеры
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item {% if current_url == 'messenger_form_list' %}active{% endif %}" href="{% url 'messenger_form_list' %}">Анкеты</a>
+                            </li>
+                            {% if user.role == "coordinator" or user.role == "admin" or user.is_superuser %}
+                                <li>
+                                    <a class="dropdown-item {% if current_url == 'messenger_review_list' %}active{% endif %}" href="{% url 'messenger_review_list' %}">Проверка</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </li>
                     {% if user.role == "coordinator" or user.role == "admin" or user.is_superuser %}
-                        <li class="nav-item"><a class="nav-link" href="{% url 'organization_dashboard' %}">Организация</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{% url 'vpn_review_list' %}">Проверка VPN</a></li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_url == 'organization_dashboard' %}active{% endif %}" href="{% url 'organization_dashboard' %}">Организация</a>
+                        </li>
                     {% endif %}
                     {% if user.role == "admin" or user.is_superuser %}
-                        <li class="nav-item"><a class="nav-link" href="{% url 'references_index' %}">Справочники</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{% url 'user_list' %}">Пользователи</a></li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_url == 'references_index' %}active{% endif %}" href="{% url 'references_index' %}">Справочники</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_url == 'user_list' %}active{% endif %}" href="{% url 'user_list' %}">Пользователи</a>
+                        </li>
                     {% endif %}
                 {% endif %}
+                {% endwith %}
             </ul>
             <div class="d-flex gap-2 align-items-center">
                 {% if user.is_authenticated %}
