@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.messages import get_messages
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render, resolve_url
 from django.views.decorators.csrf import requires_csrf_token
@@ -51,6 +51,11 @@ def csrf_failure(request, reason=""):
         return redirect("dashboard")
 
     messages.warning(request, "Сессия формы входа устарела. Откройте форму заново и повторите вход.")
+    return redirect("login")
+
+
+def logout_view(request):
+    logout(request)
     return redirect("login")
 
 

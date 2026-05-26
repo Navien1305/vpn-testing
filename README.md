@@ -59,6 +59,7 @@ SECRET_KEY=change-me
 DEBUG=False
 ALLOWED_HOSTS=127.0.0.1,localhost
 FORCE_SCRIPT_NAME=
+USE_X_FORWARDED_HOST=True
 
 POSTGRES_DB=vpn_testing
 POSTGRES_USER=vpn_testing
@@ -106,8 +107,8 @@ location /testvpn/ {
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 
-location = / {
-    return 302 /testvpn/;
+location / {
+    return 302 /testvpn$request_uri;
 }
 ```
 

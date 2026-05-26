@@ -18,6 +18,7 @@ DEBUG = os.getenv("DEBUG", "True").lower() in {"1", "true", "yes", "on"}
 
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
 FORCE_SCRIPT_NAME = os.getenv("FORCE_SCRIPT_NAME") or None
+USE_X_FORWARDED_HOST = os.getenv("USE_X_FORWARDED_HOST", "True").lower() in {"1", "true", "yes", "on"}
 
 INSTALLED_APPS = [
     "django.contrib.admin",
