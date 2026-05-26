@@ -78,10 +78,7 @@ def _can_edit_measurement(user, measurement):
     if user.role == UserRole.COORDINATOR:
         return user.organization_id == measurement.form.organization_id
     if user.role == UserRole.TESTER:
-        return _can_edit_form(user, measurement.form) and measurement.status in [
-            MeasurementStatus.DRAFT,
-            MeasurementStatus.RETURNED,
-        ]
+        return _can_edit_form(user, measurement.form)
     return False
 
 
