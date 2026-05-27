@@ -2,7 +2,7 @@ from django.utils import timezone
 
 from references.models import Messenger, VpnAppPeriod
 
-from .models import CheckStatus, MessengerFormStatus, MessengerTestResult, VpnFormStatus, VpnMeasurementResult
+from .models import CheckStatus, MeasurementStatus, MessengerFormStatus, MessengerTestResult, VpnFormStatus, VpnMeasurementResult
 
 
 def log_action(action, user, obj, details=""):
@@ -71,10 +71,64 @@ def can_submit_measurement(measurement):
     return baseline_ok and progress["total"] > 0 and progress["empty"] == 0
 
 
+def update_vpn_form_status_from_measurements(vpn_form, finish_with_first_only=False):
+    measurements = list(vpn_form.measurements.all())
+    submitted_numbers = {
+        measurement.measurement_number
+        for measurement in measurements
+        if measurement.status in [MeasurementStatus.SUBMITTED, MeasurementStatus.CONFIRMED]
+    }
+
+    if finish_with_first_only and 1 in submitted_numbers:
+        vpn_form.status = VpnFormStatus.SUBMITTED
+        vpn_form.submitted_at = timezone.now()
+        vpn_form.save(update_fields=["status", "submitted_at", "updated_at"])
+        return
+
+    if 2 in submitted_numbers:
+        vpn_form.status = VpnFormStatus.SUBMITTED
+        vpn_form.submitted_at = timezone.now()
+        vpn_form.save(update_fields=["status", "submitted_at", "updated_at"])
+        return
+
+    if 1 in submitted_numbers:
+        vpn_form.status = VpnFormStatus.PARTIALLY_SUBMITTED
+        vpn_form.submitted_at = timezone.now()
+        vpn_form.save(update_fields=["status", "submitted_at", "updated_at"])
+        return
+
+    if vpn_form.status not in [VpnFormStatus.DRAFT, VpnFormStatus.RETURNED]:
+        vpn_form.status = VpnFormStatus.DRAFT
+        vpn_form.save(update_fields=["status", "updated_at"])
+
+
+def complete_measurement_if_ready(measurement):
+    if not can_submit_measurement(measurement):
+        return False
+    if measurement.status not in [MeasurementStatus.SUBMITTED, MeasurementStatus.CONFIRMED]:
+        measurement.status = MeasurementStatus.SUBMITTED
+        measurement.submitted_at = timezone.now()
+        measurement.confirmed_at = None
+        measurement.returned_at = None
+        measurement.return_comment = ""
+        measurement.checked_by = None
+        measurement.save(
+            update_fields=[
+                "status",
+                "submitted_at",
+                "confirmed_at",
+                "returned_at",
+                "return_comment",
+                "checked_by",
+                "updated_at",
+            ]
+        )
+    update_vpn_form_status_from_measurements(measurement.form)
+    return True
+
+
 def update_form_status_after_measurement_submit(vpn_form):
-    vpn_form.status = VpnFormStatus.SUBMITTED
-    vpn_form.submitted_at = timezone.now()
-    vpn_form.save(update_fields=["status", "submitted_at", "updated_at"])
+    update_vpn_form_status_from_measurements(vpn_form)
 
 
 def form_measurement_summary(vpn_form):

@@ -8,6 +8,7 @@ from references.models import City, Messenger, MobileOperator, OperatingSystem, 
 
 class VpnFormStatus(models.TextChoices):
     DRAFT = "draft", "Черновик"
+    PARTIALLY_SUBMITTED = "partially_submitted", "Частично отправлена"
     SUBMITTED = "submitted", "Отправлена"
     CONFIRMED = "confirmed", "Подтверждена"
     RETURNED = "returned", "Возвращена"

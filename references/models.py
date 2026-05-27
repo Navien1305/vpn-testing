@@ -44,6 +44,15 @@ class Organization(TimeStampedModel):
         null=True,
         blank=True,
     )
+    linked_mobile_operator = models.ForeignKey(
+        "MobileOperator",
+        verbose_name="Связанная сим-карта",
+        on_delete=models.PROTECT,
+        related_name="linked_organizations",
+        null=True,
+        blank=True,
+        help_text="Используется для организаций-операторов при генерации ежедневного плана.",
+    )
     is_active = models.BooleanField("Активна", default=True)
 
     class Meta:

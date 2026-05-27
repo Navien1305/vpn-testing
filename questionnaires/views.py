@@ -24,6 +24,7 @@ from .services import (
     available_review_forms,
     can_submit_messenger_form,
     can_submit_measurement,
+    complete_measurement_if_ready,
     ensure_measurement_results,
     ensure_messenger_results,
     form_measurement_summary,
@@ -34,10 +35,12 @@ from .services import (
     ordered_messenger_results,
     ordered_results,
     update_form_status_after_measurement_submit,
+    update_vpn_form_status_from_measurements,
 )
 
 
 SUBMISSION_TO_REVIEW_ENABLED = False
+REVIEW_ACTIONS_ENABLED = False
 
 
 def _is_admin(user):
@@ -91,12 +94,17 @@ def _can_submit_measurement_action(user, measurement):
 
 
 def _can_review(user, vpn_form):
+    if not REVIEW_ACTIONS_ENABLED:
+        return False
     if _is_admin(user):
         return True
     return user.role == UserRole.COORDINATOR and user.organization_id == vpn_form.organization_id
 
 
 def _sync_form_status_from_measurements(vpn_form, user=None):
+    if not REVIEW_ACTIONS_ENABLED:
+        update_vpn_form_status_from_measurements(vpn_form)
+        return
     measurements = list(vpn_form.measurements.all())
     if any(measurement.status == MeasurementStatus.RETURNED for measurement in measurements):
         vpn_form.status = VpnFormStatus.RETURNED
@@ -142,6 +150,8 @@ def _can_edit_messenger_form(user, form):
 
 
 def _can_review_messenger_form(user, form):
+    if not REVIEW_ACTIONS_ENABLED:
+        return False
     if _is_admin(user):
         return True
     return user.role == UserRole.COORDINATOR and user.organization_id == form.organization_id
@@ -170,14 +180,14 @@ def _related_messenger_form(vpn_form):
     )
 
 
-FORM_SORT_OPTIONS = {
-    "-date": "Дата: новые сверху",
-    "date": "Дата: старые сверху",
-    "organization__name": "Организация: А-Я",
-    "city__name": "Город: А-Я",
-    "mobile_operator__name": "Оператор: А-Я",
-    "os": "ОС: А-Я",
-    "status": "Статус: А-Я",
+FORM_SORT_FIELDS = {
+    "date": "date",
+    "tester": "tester",
+    "organization": "organization__name",
+    "city": "city__name",
+    "mobile_operator": "mobile_operator__name",
+    "os": "os",
+    "status": "status",
 }
 
 
@@ -196,14 +206,33 @@ def _filter_form_queryset(qs, params, status_choices):
         qs = qs.filter(os=params["os"])
     if params.get("status"):
         qs = qs.filter(status=params["status"])
-    ordering = params.get("sort") if params.get("sort") in FORM_SORT_OPTIONS else "-date"
+    allowed_sort_values = set(FORM_SORT_FIELDS.values()) | {f"-{value}" for value in FORM_SORT_FIELDS.values()}
+    ordering = params.get("sort") if params.get("sort") in allowed_sort_values else "-date"
     return qs.order_by(ordering, "-created_at")
+
+
+def _sort_links(params, columns):
+    current_sort = params.get("sort") or "-date"
+    links = {}
+    for key in columns:
+        field = FORM_SORT_FIELDS[key]
+        is_active = current_sort.lstrip("-") == field
+        next_sort = field
+        if current_sort == field:
+            next_sort = f"-{field}"
+        query = params.copy()
+        query["sort"] = next_sort
+        links[key] = {
+            "url": f"?{query.urlencode()}",
+            "active": is_active,
+            "direction": "desc" if current_sort == f"-{field}" else "asc",
+        }
+    return links
 
 
 def _form_filter_context(base_qs, params, status_choices):
     return {
         "filters": params,
-        "sort_options": FORM_SORT_OPTIONS,
         "status_options": status_choices,
         "organizations": base_qs.order_by("organization__name")
         .values_list("organization_id", "organization__name")
@@ -225,6 +254,7 @@ def vpn_form_list(request):
     context = {
         "forms": forms,
         "deletable_form_ids": deletable_form_ids,
+        "sort_links": _sort_links(filters, ["date", "tester", "organization", "city", "mobile_operator", "os", "status"]),
         **_form_filter_context(base_qs, filters, VpnFormStatus.choices),
     }
     return render(request, "questionnaires/vpn_form_list.html", context)
@@ -270,7 +300,7 @@ def vpn_form_detail(request, pk):
         raise PermissionDenied
     summaries = form_measurement_summary(vpn_form)
     first_measurement = summaries.get(1, {}).get("measurement") if summaries.get(1) else None
-    can_start_second = bool(first_measurement and can_submit_measurement(first_measurement))
+    can_start_second = bool(first_measurement and first_measurement.status in [MeasurementStatus.SUBMITTED, MeasurementStatus.CONFIRMED])
     messenger_form = _related_messenger_form(vpn_form)
     messenger_progress = messenger_form_progress(messenger_form) if messenger_form else None
     return render(
@@ -314,7 +344,7 @@ def vpn_measurement_start(request, pk, number):
     if not _can_edit_form(request.user, vpn_form):
         raise PermissionDenied
     first_measurement = vpn_form.measurements.filter(measurement_number=1).first()
-    if number == 2 and not (first_measurement and can_submit_measurement(first_measurement)):
+    if number == 2 and not (first_measurement and first_measurement.status in [MeasurementStatus.SUBMITTED, MeasurementStatus.CONFIRMED]):
         messages.warning(request, "Второе тестирование доступно после заполнения первого.")
         return redirect("vpn_form_detail", pk=vpn_form.pk)
     measurement, _ = VpnMeasurement.objects.get_or_create(form=vpn_form, measurement_number=number)
@@ -347,6 +377,7 @@ def vpn_measurement_baseline(request, pk):
             results = ordered_results(measurement)
             if measurement.onelostbox_without_vpn_status == "works":
                 mark_all_results_available(measurement)
+                complete_measurement_if_ready(measurement)
                 return redirect("vpn_measurement_complete", pk=measurement.pk)
             if results:
                 return redirect("vpn_measurement_fill", pk=measurement.pk, result_id=results[0].pk)
@@ -391,6 +422,7 @@ def vpn_measurement_fill(request, pk, result_id):
                 return redirect("vpn_measurement_fill", pk=measurement.pk, result_id=result.pk)
             if index + 1 < len(results):
                 return redirect("vpn_measurement_fill", pk=measurement.pk, result_id=results[index + 1].pk)
+            complete_measurement_if_ready(measurement)
             return redirect("vpn_measurement_complete", pk=measurement.pk)
     else:
         form = VpnMeasurementResultForm(instance=result)
@@ -425,6 +457,7 @@ def vpn_measurement_complete(request, pk):
             "measurement": measurement,
             "progress": progress,
             "can_submit": _can_submit_measurement_action(request.user, measurement),
+            "is_complete": can_submit_measurement(measurement),
         },
     )
 
@@ -445,7 +478,7 @@ def vpn_measurement_summary(request, pk):
             "progress": progress,
             "can_edit_measurement": _can_edit_measurement(request.user, measurement),
             "can_submit": _can_submit_measurement_action(request.user, measurement),
-            "can_review_measurement_actions": _can_review(request.user, measurement.form) and measurement.status == MeasurementStatus.SUBMITTED,
+            "can_review_measurement_actions": REVIEW_ACTIONS_ENABLED and _can_review(request.user, measurement.form) and measurement.status == MeasurementStatus.SUBMITTED,
         },
     )
 
@@ -454,7 +487,8 @@ def vpn_measurement_summary(request, pk):
 def vpn_measurement_submit(request, pk):
     measurement = get_object_or_404(VpnMeasurement.objects.select_related("form"), pk=pk)
     if not SUBMISSION_TO_REVIEW_ENABLED:
-        messages.info(request, "Отправка анкет на согласование временно отключена.")
+        complete_measurement_if_ready(measurement)
+        messages.info(request, "Замер завершен автоматически.")
         return redirect("vpn_measurement_complete", pk=measurement.pk)
     if request.user.role != UserRole.TESTER or measurement.form.created_by_id != request.user.id:
         raise PermissionDenied
@@ -478,7 +512,12 @@ def vpn_measurement_submit(request, pk):
 def vpn_form_submit_single_measurement(request, pk):
     vpn_form = get_object_or_404(VpnTestForm, pk=pk)
     if not SUBMISSION_TO_REVIEW_ENABLED:
-        messages.info(request, "Отправка анкет на согласование временно отключена.")
+        first = vpn_form.measurements.filter(measurement_number=1).first()
+        if first and complete_measurement_if_ready(first):
+            update_vpn_form_status_from_measurements(vpn_form, finish_with_first_only=True)
+            messages.success(request, "Анкета отправлена.")
+        else:
+            messages.error(request, "Сначала завершите первый замер.")
         return redirect("vpn_form_detail", pk=vpn_form.pk)
     if not _can_edit_form(request.user, vpn_form):
         raise PermissionDenied
@@ -495,6 +534,8 @@ def vpn_form_submit_single_measurement(request, pk):
 
 @approved_required
 def vpn_review_list(request):
+    if not REVIEW_ACTIONS_ENABLED:
+        raise PermissionDenied
     if request.user.role not in [UserRole.COORDINATOR, UserRole.ADMIN] and not request.user.is_superuser:
         raise PermissionDenied
     forms = available_review_forms(_forms_for_user(request.user)).order_by("-date", "-submitted_at")
@@ -602,6 +643,7 @@ def messenger_form_list(request):
     forms = _filter_form_queryset(base_qs, filters, MessengerFormStatus.choices)
     context = {
         "forms": forms,
+        "sort_links": _sort_links(filters, ["date", "organization", "city", "mobile_operator", "os", "status"]),
         **_form_filter_context(base_qs, filters, MessengerFormStatus.choices),
     }
     return render(request, "questionnaires/messenger_form_list.html", context)
@@ -784,6 +826,8 @@ def messenger_form_submit(request, pk):
 
 @approved_required
 def messenger_review_list(request):
+    if not REVIEW_ACTIONS_ENABLED:
+        raise PermissionDenied
     if request.user.role not in [UserRole.COORDINATOR, UserRole.ADMIN] and not request.user.is_superuser:
         raise PermissionDenied
     forms = available_messenger_review_forms(_messenger_forms_for_user(request.user)).order_by("-date", "-submitted_at")

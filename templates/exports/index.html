@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Экспорт{% endblock %}
+{% block content %}
+<div class="content-card p-4">
+    <h1 class="h4 mb-3">Экспорт в Excel</h1>
+
+    <form class="mb-4" method="get" action="{% url 'export_index' %}">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-3">
+                <label class="form-label" for="export-date">Дата</label>
+                <input class="form-control" type="date" id="export-date" name="date" value="{{ filters.date }}" required>
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="form-label" for="export-form-type">Тип анкеты</label>
+                <select class="form-select" id="export-form-type" name="form_type">
+                    <option value="all" {% if filters.form_type == "all" or not filters.form_type %}selected{% endif %}>Все</option>
+                    <option value="vpn" {% if filters.form_type == "vpn" %}selected{% endif %}>VPN</option>
+                    <option value="messenger" {% if filters.form_type == "messenger" %}selected{% endif %}>Мессенджеры</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="form-label" for="export-organization">Организация</label>
+                <select class="form-select" id="export-organization" name="organization">
+                    <option value="">Все</option>
+                    {% for organization in organizations %}
+                        <option value="{{ organization.id }}" {% if filters.organization == organization.id|stringformat:'s' %}selected{% endif %}>{{ organization.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="form-label" for="export-status">Статус</label>
+                <select class="form-select" id="export-status" name="status">
+                    <option value="">Все</option>
+                    <option value="draft" {% if filters.status == "draft" %}selected{% endif %}>Черновик</option>
+                    <option value="partially_submitted" {% if filters.status == "partially_submitted" %}selected{% endif %}>Частично отправлена</option>
+                    <option value="submitted" {% if filters.status == "submitted" %}selected{% endif %}>Отправлена</option>
+                    <option value="confirmed" {% if filters.status == "confirmed" %}selected{% endif %}>Подтверждена</option>
+                    <option value="returned" {% if filters.status == "returned" %}selected{% endif %}>Возвращена</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="form-label" for="export-city">Город</label>
+                <select class="form-select" id="export-city" name="city">
+                    <option value="">Все</option>
+                    {% for city in cities %}
+                        <option value="{{ city.id }}" {% if filters.city == city.id|stringformat:'s' %}selected{% endif %}>{{ city.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="form-label" for="export-mobile-operator">Сим-карта</label>
+                <select class="form-select" id="export-mobile-operator" name="mobile_operator">
+                    <option value="">Все</option>
+                    {% for mobile_operator in mobile_operators %}
+                        <option value="{{ mobile_operator.id }}" {% if filters.mobile_operator == mobile_operator.id|stringformat:'s' %}selected{% endif %}>{{ mobile_operator.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-3">
+                <label class="form-label" for="export-os">ОС</label>
+                <select class="form-select" id="export-os" name="os">
+                    <option value="">Все</option>
+                    {% for value, label in os_options %}
+                        <option value="{{ value }}" {% if filters.os == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-3 d-grid">
+                <button class="btn btn-primary" type="submit">Показать анкеты</button>
+            </div>
+        </div>
+    </form>
+
+    {% if parsed_filters %}
+        <form method="get" action="{% url 'export_excel' %}">
+            <input type="hidden" name="selection_mode" value="selected">
+            <input type="hidden" name="date" value="{{ filters.date }}">
+            <input type="hidden" name="form_type" value="{{ filters.form_type|default:'all' }}">
+            <input type="hidden" name="organization" value="{{ filters.organization }}">
+            <input type="hidden" name="status" value="{{ filters.status }}">
+            <input type="hidden" name="city" value="{{ filters.city }}">
+            <input type="hidden" name="mobile_operator" value="{{ filters.mobile_operator }}">
+            <input type="hidden" name="os" value="{{ filters.os }}">
+
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <button class="btn btn-outline-primary btn-sm" type="button" data-select-export="all">Выбрать всё</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-select-export="none">Сбросить всё</button>
+                <button class="btn btn-success btn-sm ms-auto" type="submit">Сформировать Excel</button>
+            </div>
+
+            {% if vpn_forms %}
+                <h2 class="h5 mt-3">VPN-анкеты</h2>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"></th>
+                                <th>Дата</th>
+                                <th>Тестировщик</th>
+                                <th>Город</th>
+                                <th>Сим-карта</th>
+                                <th>ОС</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in vpn_forms %}
+                                <tr>
+                                    <td><input class="form-check-input export-choice" type="checkbox" name="vpn_forms" value="{{ item.id }}"></td>
+                                    <td>{{ item.date|date:"d.m.Y" }}</td>
+                                    <td>{{ item.organization.name }}</td>
+                                    <td>{{ item.city.name }}</td>
+                                    <td>{{ item.mobile_operator.name }}</td>
+                                    <td>{{ item.os }}</td>
+                                    <td><span class="badge text-bg-secondary">{{ item.get_status_display }}</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+
+            {% if messenger_forms %}
+                <h2 class="h5 mt-3">Анкеты мессенджеров</h2>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"></th>
+                                <th>Дата</th>
+                                <th>Организация</th>
+                                <th>Город</th>
+                                <th>Сим-карта</th>
+                                <th>ОС</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in messenger_forms %}
+                                <tr>
+                                    <td><input class="form-check-input export-choice" type="checkbox" name="messenger_forms" value="{{ item.id }}"></td>
+                                    <td>{{ item.date|date:"d.m.Y" }}</td>
+                                    <td>{{ item.organization.name }}</td>
+                                    <td>{{ item.city.name }}</td>
+                                    <td>{{ item.mobile_operator.name }}</td>
+                                    <td>{{ item.os }}</td>
+                                    <td><span class="badge text-bg-secondary">{{ item.get_status_display }}</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+
+            {% if not vpn_forms and not messenger_forms %}
+                <div class="alert alert-info mb-0">По выбранным фильтрам анкет не найдено.</div>
+            {% endif %}
+        </form>
+    {% endif %}
+</div>
+
+<script>
+    document.querySelector("[data-select-export='all']")?.addEventListener("click", function () {
+        document.querySelectorAll(".export-choice").forEach(function (item) {
+            item.checked = true;
+        });
+    });
+    document.querySelector("[data-select-export='none']")?.addEventListener("click", function () {
+        document.querySelectorAll(".export-choice").forEach(function (item) {
+            item.checked = false;
+        });
+    });
+</script>
+{% endblock %}

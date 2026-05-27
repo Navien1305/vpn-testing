@@ -1,69 +1,61 @@
 <form method="get" class="content-card p-3 mb-3">
-    <div class="row g-3 align-items-end">
-        <div class="col-md-2">
+    <div class="row g-2 align-items-end">
+        <div class="col-6 col-lg-1">
             <label class="form-label" for="date_from">Дата с</label>
-            <input class="form-control" type="date" id="date_from" name="date_from" value="{{ filters.date_from }}">
+            <input class="form-control form-control-sm" type="date" id="date_from" name="date_from" value="{{ filters.date_from }}">
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-lg-1">
             <label class="form-label" for="date_to">Дата по</label>
-            <input class="form-control" type="date" id="date_to" name="date_to" value="{{ filters.date_to }}">
+            <input class="form-control form-control-sm" type="date" id="date_to" name="date_to" value="{{ filters.date_to }}">
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-lg-2">
             <label class="form-label" for="organization">Организация</label>
-            <select class="form-select" id="organization" name="organization">
+            <select class="form-select form-select-sm" id="organization" name="organization">
                 <option value="">Все</option>
                 {% for value, label in organizations %}
                     <option value="{{ value }}" {% if filters.organization == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-lg-2">
             <label class="form-label" for="city">Город</label>
-            <select class="form-select" id="city" name="city">
+            <select class="form-select form-select-sm" id="city" name="city">
                 <option value="">Все</option>
                 {% for value, label in cities %}
                     <option value="{{ value }}" {% if filters.city == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-lg-2">
             <label class="form-label" for="mobile_operator">Оператор</label>
-            <select class="form-select" id="mobile_operator" name="mobile_operator">
+            <select class="form-select form-select-sm" id="mobile_operator" name="mobile_operator">
                 <option value="">Все</option>
                 {% for value, label in mobile_operators %}
                     <option value="{{ value }}" {% if filters.mobile_operator == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-lg-1">
             <label class="form-label" for="os">ОС</label>
-            <select class="form-select" id="os" name="os">
+            <select class="form-select form-select-sm" id="os" name="os">
                 <option value="">Все</option>
                 {% for value in os_options %}
                     <option value="{{ value }}" {% if filters.os == value %}selected{% endif %}>{{ value }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-6 col-lg-1">
             <label class="form-label" for="status">Статус</label>
-            <select class="form-select" id="status" name="status">
+            <select class="form-select form-select-sm" id="status" name="status">
                 <option value="">Все</option>
                 {% for value, label in status_options %}
                     <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-3">
-            <label class="form-label" for="sort">Сортировка</label>
-            <select class="form-select" id="sort" name="sort">
-                {% for value, label in sort_options.items %}
-                    <option value="{{ value }}" {% if filters.sort == value or not filters.sort and value == "-date" %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-auto">
-            <button class="btn btn-primary" type="submit">Показать</button>
-            <a class="btn btn-outline-secondary" href="{{ request.path }}">Сбросить</a>
+        <div class="col-12 col-lg-auto">
+            <button class="btn btn-primary btn-sm" type="submit">Показать</button>
+            <a class="btn btn-outline-secondary btn-sm" href="{{ request.path }}">Сбросить</a>
         </div>
     </div>
 </form>

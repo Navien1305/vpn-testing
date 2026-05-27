@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Контроль анкет{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+    <div>
+        <h1 class="h3 mb-1">Контроль анкет</h1>
+        <div class="text-muted">{{ control_date|date:"d.m.Y" }}</div>
+    </div>
+    <form class="d-flex gap-2" id="control-date-form">
+        <input class="form-control" type="date" id="control-date-input" value="{{ control_date|date:'Y-m-d' }}">
+        <button class="btn btn-outline-primary" type="submit">Показать</button>
+    </form>
+</div>
+
+{% if not has_plan %}
+    <div class="alert alert-warning">
+        План на дату не сформирован.
+        {% if can_generate %}
+            <a class="btn btn-sm btn-primary ms-2" href="{% url 'control_generate' control_date|date:'Y-m-d' %}">Сформировать план</a>
+        {% endif %}
+    </div>
+{% else %}
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="text-muted">Плановых записей: {{ plan_count }}</div>
+        {% if can_export %}
+            <a class="btn btn-sm btn-outline-success" href="{% url 'control_export_excel' control_date|date:'Y-m-d' %}">
+                {% if summary.ready_for_export %}Сформировать Excel{% else %}Сформировать Excel с неполными данными{% endif %}
+            </a>
+        {% endif %}
+        {# TODO: вернуть досформирование плана, если появится понятный сценарий использования. #}
+    </div>
+
+    <div class="row g-3 mb-3">
+        {% include "control/partials/summary_card.html" with title="Всего" data=summary.total show_partial=True %}
+        {% include "control/partials/summary_card.html" with title="VPN" data=summary.vpn show_partial=True %}
+        {% include "control/partials/summary_card.html" with title="Мессенджеры" data=summary.messenger show_partial=False %}
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <a class="btn btn-sm {% if not active_status_key and not filters.status %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'control_detail' control_date|date:'Y-m-d' %}">Все</a>
+        <a class="btn btn-sm {% if active_status_key == 'missing' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'control_missing' control_date|date:'Y-m-d' %}">Отсутствующие</a>
+        <a class="btn btn-sm {% if active_status_key == 'drafts' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'control_drafts' control_date|date:'Y-m-d' %}">Черновики</a>
+        <a class="btn btn-sm {% if active_status_key == 'submitted' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'control_submitted' control_date|date:'Y-m-d' %}">Отправленные</a>
+    </div>
+
+    <form class="content-card p-3 mb-3" method="get">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-2">
+                <label class="form-label" for="filter-form-type">Тип</label>
+                <select class="form-select" id="filter-form-type" name="form_type">
+                    <option value="">Все</option>
+                    {% for value, label in form_type_choices %}
+                        <option value="{{ value }}" {% if filters.form_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label" for="filter-organization">Организация</label>
+                <select class="form-select" id="filter-organization" name="organization">
+                    <option value="">Все</option>
+                    {% for id, name in organizations %}
+                        <option value="{{ id }}" {% if filters.organization == id|stringformat:'s' %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label" for="filter-city">Город</label>
+                <select class="form-select" id="filter-city" name="city">
+                    <option value="">Все</option>
+                    {% for id, name in cities %}
+                        <option value="{{ id }}" {% if filters.city == id|stringformat:'s' %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label" for="filter-mobile-operator">Сим-карта</label>
+                <select class="form-select" id="filter-mobile-operator" name="mobile_operator">
+                    <option value="">Все</option>
+                    {% for id, name in mobile_operators %}
+                        <option value="{{ id }}" {% if filters.mobile_operator == id|stringformat:'s' %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-1">
+                <label class="form-label" for="filter-os">ОС</label>
+                <select class="form-select" id="filter-os" name="os">
+                    <option value="">Все</option>
+                    {% for os in os_options %}
+                        <option value="{{ os }}" {% if filters.os == os %}selected{% endif %}>{{ os }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label" for="filter-status">Статус</label>
+                <select class="form-select" id="filter-status" name="status">
+                    <option value="">Все</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-1 d-grid">
+                <button class="btn btn-primary" type="submit">OK</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="content-card p-3 table-responsive">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h2 class="h5 mb-0">Плановые анкеты по организациям</h2>
+            <div class="text-muted small">Организаций: {{ organization_groups|length }}</div>
+        </div>
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Организация</th>
+                    <th>Всего</th>
+                    <th>Отсутствуют</th>
+                    <th>Черновики</th>
+                    <th>Частично</th>
+                    <th>Отправлены</th>
+                    <th>Готово</th>
+                    <th>Готовность</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in organization_groups %}
+                    <tr class="control-group-row" role="button" data-bs-toggle="collapse" data-bs-target="#org-{{ group.organization.id }}">
+                        <td><strong>{{ group.organization.name }}</strong></td>
+                        <td>{{ group.summary.expected }}</td>
+                        <td>{{ group.summary.missing }}</td>
+                        <td>{{ group.summary.draft }}</td>
+                        <td>{{ group.summary.partially_submitted }}</td>
+                        <td>{{ group.summary.submitted }}</td>
+                        <td>{{ group.summary.ready_count }}</td>
+                        <td style="min-width: 140px;">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="progress flex-grow-1" style="height: 0.5rem;">
+                                    <div class="progress-bar" style="width: {{ group.summary.percent }}%"></div>
+                                </div>
+                                <span class="small">{{ group.summary.percent }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="collapse" id="org-{{ group.organization.id }}">
+                        <td colspan="8" class="bg-light">
+                            {% if group.vpn_rows %}
+                                <h3 class="h6 mt-2 mb-2">VPN</h3>
+                                <div class="table-responsive mb-3">
+                                    <table class="table table-sm mb-0">
+                                        <tbody>
+                                            {% for row in group.vpn_rows %}
+                                                {% include "control/partials/detail_row.html" with row=row %}
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% endif %}
+                            {% if group.messenger_rows %}
+                                <h3 class="h6 mt-2 mb-2">Мессенджеры</h3>
+                                <div class="table-responsive">
+                                    <table class="table table-sm mb-0">
+                                        <tbody>
+                                            {% for row in group.messenger_rows %}
+                                                {% include "control/partials/detail_row.html" with row=row %}
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td class="text-muted" colspan="8">Нет записей по выбранным условиям.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+
+<script>
+    document.getElementById("control-date-form")?.addEventListener("submit", function (event) {
+        event.preventDefault();
+        const value = document.getElementById("control-date-input").value;
+        if (value) {
+            window.location.href = "{% url 'control_index' %}" + value + "/";
+        }
+    });
+</script>
+{% endblock %}

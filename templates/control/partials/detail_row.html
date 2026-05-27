@@ -1,0 +1,20 @@
+<tr>
+    <td>{{ row.plan.city.name }} / {{ row.plan.os }} / {{ row.plan.mobile_operator.name }}</td>
+    <td style="width: 140px;">
+        <span class="badge {% if row.status == 'missing' %}text-bg-danger{% elif row.status == 'submitted' or row.status == 'confirmed' %}text-bg-success{% elif row.status == 'partially_submitted' %}text-bg-info{% else %}text-bg-secondary{% endif %}">
+            {{ row.status_label }}
+        </span>
+    </td>
+    {% if row.actual %}
+        <td class="text-muted">{{ row.tester|default:"-" }}</td>
+        <td class="text-end" style="width: 100px;">
+            {% if row.plan.form_type == "vpn" %}
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'vpn_form_detail' row.actual.id %}">Открыть</a>
+            {% else %}
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'messenger_form_detail' row.actual.id %}">Открыть</a>
+            {% endif %}
+        </td>
+    {% else %}
+        <td colspan="2" class="text-muted small">Анкета не создана</td>
+    {% endif %}
+</tr>

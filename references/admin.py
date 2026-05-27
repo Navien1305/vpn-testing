@@ -12,8 +12,8 @@ class CityAdmin(admin.ModelAdmin):
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ("name", "type", "city", "is_active")
-    list_filter = ("type", "is_active", "city")
+    list_display = ("name", "type", "city", "linked_mobile_operator", "is_active")
+    list_filter = ("type", "is_active", "city", "linked_mobile_operator")
     search_fields = ("name",)
 
 

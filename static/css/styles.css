@@ -17,6 +17,22 @@ body {
     white-space: nowrap;
 }
 
+.table th .table-sort-link {
+    color: #000;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.table th .table-sort-link:hover,
+.table th .table-sort-link:focus {
+    color: #000;
+    text-decoration: none;
+}
+
+.form-label {
+    margin-bottom: 0.25rem;
+}
+
 .city-tab-list {
     display: flex;
     flex-wrap: wrap;

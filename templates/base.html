@@ -53,11 +53,7 @@
                             <li>
                                 <a class="dropdown-item {% if current_url == 'vpn_form_list' %}active{% endif %}" href="{% url 'vpn_form_list' %}">VPN-анкеты</a>
                             </li>
-                            {% if user.role == "coordinator" or user.role == "admin" or user.is_superuser %}
-                                <li>
-                                    <a class="dropdown-item {% if current_url == 'vpn_review_list' %}active{% endif %}" href="{% url 'vpn_review_list' %}">Проверка VPN</a>
-                                </li>
-                            {% endif %}
+                            {# TODO: вернуть пункт проверки VPN, когда снова включим цепочку согласования. #}
                         </ul>
                     </li>
                     <li class="nav-item dropdown">
@@ -68,13 +64,17 @@
                             <li>
                                 <a class="dropdown-item {% if current_url == 'messenger_form_list' %}active{% endif %}" href="{% url 'messenger_form_list' %}">Анкеты</a>
                             </li>
-                            {% if user.role == "coordinator" or user.role == "admin" or user.is_superuser %}
-                                <li>
-                                    <a class="dropdown-item {% if current_url == 'messenger_review_list' %}active{% endif %}" href="{% url 'messenger_review_list' %}">Проверка</a>
-                                </li>
-                            {% endif %}
+                            {# TODO: вернуть пункт проверки мессенджеров, когда снова включим цепочку согласования. #}
                         </ul>
                     </li>
+                    {% if user.role == "coordinator" or user.role == "reader" or user.role == "admin" or user.is_superuser %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_url|slice:':8' == 'control_' %}active{% endif %}" href="{% url 'control_index' %}">Контроль</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if current_url|slice:':7' == 'export_' %}active{% endif %}" href="{% url 'export_index' %}">Экспорт</a>
+                        </li>
+                    {% endif %}
                     {% if user.role == "coordinator" or user.role == "admin" or user.is_superuser %}
                         <li class="nav-item">
                             <a class="nav-link {% if current_url == 'organization_dashboard' %}active{% endif %}" href="{% url 'organization_dashboard' %}">Организация</a>

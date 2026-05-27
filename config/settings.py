@@ -30,6 +30,8 @@ INSTALLED_APPS = [
     "accounts",
     "references",
     "questionnaires",
+    "control",
+    "exports",
     "core",
 ]
 
