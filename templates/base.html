@@ -28,98 +28,78 @@
         }
     </style>
 </head>
-<body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="{% url 'home' %}">Тестирование</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav me-auto">
-                {% with current_url=request.resolver_match.url_name %}
-                <li class="nav-item">
-                    <a class="nav-link {% if current_url == 'home' %}active{% endif %}" href="{% url 'home' %}">Главная</a>
-                </li>
-                {% if user.is_authenticated %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if current_url == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Личный кабинет</a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {% if current_url|slice:':4' == 'vpn_' %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            VPN
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li>
-                                <a class="dropdown-item {% if current_url == 'vpn_form_list' %}active{% endif %}" href="{% url 'vpn_form_list' %}">VPN-анкеты</a>
-                            </li>
-                            {# TODO: вернуть пункт проверки VPN, когда снова включим цепочку согласования. #}
-                        </ul>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {% if current_url|slice:':10' == 'messenger_' %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            Мессенджеры
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li>
-                                <a class="dropdown-item {% if current_url == 'messenger_form_list' %}active{% endif %}" href="{% url 'messenger_form_list' %}">Анкеты</a>
-                            </li>
-                            {# TODO: вернуть пункт проверки мессенджеров, когда снова включим цепочку согласования. #}
-                        </ul>
-                    </li>
+<body class="{% if user.is_authenticated %}body-authenticated{% else %}body-auth{% endif %}">
+{% with current_url=request.resolver_match.url_name %}
+<div class="app-layout {% if user.is_authenticated %}app-layout--with-sidebar{% else %}app-layout--auth{% endif %}">
+    {% if user.is_authenticated %}
+        <aside class="app-sidebar">
+            <div class="app-sidebar-frame">
+                <a class="app-brand" href="{% url 'home' %}">
+                    <span class="app-brand__mark">T</span>
+                    <span class="app-brand__text">Тестирование</span>
+                </a>
+
+                <nav class="app-nav" aria-label="Основная навигация">
+                    <a class="app-nav__link {% if current_url == 'home' %}is-active{% endif %}" href="{% url 'home' %}">Главная</a>
+                    <a class="app-nav__link {% if current_url == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}">Личный кабинет</a>
+
+                    <div class="app-nav__group">
+                        <div class="app-nav__summary">VPN</div>
+                        <a class="app-nav__link app-nav__link--child {% if current_url == 'vpn_form_list' or current_url|slice:':4' == 'vpn_' %}is-active{% endif %}" href="{% url 'vpn_form_list' %}">VPN-анкеты</a>
+                        {# TODO: вернуть пункт проверки VPN, когда снова включим цепочку согласования. #}
+                    </div>
+
+                    <div class="app-nav__group">
+                        <div class="app-nav__summary">Мессенджеры</div>
+                        <a class="app-nav__link app-nav__link--child {% if current_url == 'messenger_form_list' or current_url|slice:':10' == 'messenger_' %}is-active{% endif %}" href="{% url 'messenger_form_list' %}">Анкеты</a>
+                        {# TODO: вернуть пункт проверки мессенджеров, когда снова включим цепочку согласования. #}
+                    </div>
+
                     {% if user.role == "coordinator" or user.role == "reader" or user.role == "admin" or user.is_superuser %}
-                        <li class="nav-item">
-                            <a class="nav-link {% if current_url|slice:':8' == 'control_' %}active{% endif %}" href="{% url 'control_index' %}">Контроль</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if current_url|slice:':7' == 'export_' %}active{% endif %}" href="{% url 'export_index' %}">Экспорт</a>
-                        </li>
+                        <a class="app-nav__link {% if current_url|slice:':8' == 'control_' %}is-active{% endif %}" href="{% url 'control_index' %}">Контроль</a>
+                        <a class="app-nav__link {% if current_url|slice:':7' == 'export_' %}is-active{% endif %}" href="{% url 'export_index' %}">Экспорт</a>
                     {% endif %}
+
                     {% if user.role == "coordinator" or user.role == "admin" or user.is_superuser %}
-                        <li class="nav-item">
-                            <a class="nav-link {% if current_url == 'organization_dashboard' %}active{% endif %}" href="{% url 'organization_dashboard' %}">Организация</a>
-                        </li>
+                        <a class="app-nav__link {% if current_url == 'organization_dashboard' %}is-active{% endif %}" href="{% url 'organization_dashboard' %}">Организация</a>
                     {% endif %}
+
                     {% if user.role == "admin" or user.is_superuser %}
-                        <li class="nav-item">
-                            <a class="nav-link {% if current_url == 'references_index' %}active{% endif %}" href="{% url 'references_index' %}">Справочники</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if current_url == 'user_list' %}active{% endif %}" href="{% url 'user_list' %}">Пользователи</a>
-                        </li>
+                        <div class="app-nav__group">
+                            <div class="app-nav__summary">Администрирование</div>
+                            <a class="app-nav__link app-nav__link--child {% if current_url == 'references_index' %}is-active{% endif %}" href="{% url 'references_index' %}">Справочники</a>
+                            <a class="app-nav__link app-nav__link--child {% if current_url == 'user_list' %}is-active{% endif %}" href="{% url 'user_list' %}">Пользователи</a>
+                        </div>
                     {% endif %}
-                {% endif %}
-                {% endwith %}
-            </ul>
-            <div class="d-flex gap-2 align-items-center">
-                {% if user.is_authenticated %}
-                    <span class="text-light small">{{ user.username }}</span>
+                </nav>
+
+                <div class="app-sidebar-user">
+                    <div class="app-sidebar-user__name">{{ user.username }}</div>
+                    <div class="app-sidebar-user__role">{{ user.get_role_display|default:user.role }}</div>
                     <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}
-                        <button class="btn btn-outline-light btn-sm" type="submit">Выйти</button>
+                        <button class="btn btn-outline-secondary btn-sm w-100" type="submit">Выйти</button>
                     </form>
-                {% else %}
-                    <a class="btn btn-outline-light btn-sm" href="{% url 'login' %}">Войти</a>
-                    <a class="btn btn-primary btn-sm" href="{% url 'register' %}">Регистрация</a>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</nav>
-
-<main class="page-shell py-4">
-    <div class="container">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
-            {% endfor %}
-        {% endif %}
-        {% block content %}{% endblock %}
-    </div>
-</main>
+            </div>
+        </aside>
+    {% endif %}
+
+    <main class="app-content">
+        <div class="app-container">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+</div>
+{% endwith %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

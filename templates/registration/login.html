@@ -1,22 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Вход{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-5">
-        <div class="content-card p-4">
-            <h1 class="h5 mb-4">Выполните вход, используя учетную запись организации</h1>
-            <form method="post">
+<div class="login-bg" aria-hidden="true">
+    <div class="login-bg__grid"></div>
+    <div class="login-bg__dots"></div>
+    <div class="login-bg__emblem">T</div>
+    <div class="login-bg__glow"></div>
+    <div class="login-bg__pulses">
+        <span class="login-bg__pulse"></span>
+        <span class="login-bg__pulse"></span>
+        <span class="login-bg__pulse"></span>
+    </div>
+</div>
+<div class="login-card">
+    <div class="login-brand">
+        <span class="login-brand__mark">T</span>
+        <span class="login-brand__text">Тестирование</span>
+    </div>
+    <h1 class="login-title">Выполните вход, используя учетную запись организации</h1>
+    <form class="login-form" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ next }}">
-                <div class="mb-3">
+                <div class="login-form__group">
+                    <span class="login-form__label">Организация</span>
                     {{ form.organization }}
                     {% for error in form.organization.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                 </div>
-                <div class="mb-3">
+                <div class="login-form__group">
+                    <span class="login-form__label">Логин</span>
                     {{ form.user_id }}
                     {% for error in form.user_id.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                 </div>
-                <div class="mb-3">
+                <div class="login-form__group">
+                    <span class="login-form__label">Пароль</span>
                     <div class="input-group password-input-group">
                         {{ form.password }}
                         <button class="btn btn-outline-secondary" id="togglePassword" type="button">Показать</button>
@@ -26,10 +42,22 @@
                 {% if form.non_field_errors %}
                     <div class="alert alert-danger">{{ form.non_field_errors }}</div>
                 {% endif %}
-                <button class="btn btn-primary" type="submit">Войти</button>
-            </form>
+        <button class="btn btn-primary login-submit" type="submit">
+            <span class="login-submit__spinner" aria-hidden="true"></span>
+            <span class="login-submit__text">Войти</span>
+        </button>
+        <div class="login-progress" aria-hidden="true">
+            <div class="login-progress__track">
+                <div class="login-progress__fill"></div>
+            </div>
         </div>
-    </div>
+        <div class="login-statuses" aria-live="polite" aria-atomic="true">
+            <div class="login-status" data-step="0">Проверка учетных данных</div>
+            <div class="login-status" data-step="1">Загрузка профиля</div>
+            <div class="login-status" data-step="2">Синхронизация разделов</div>
+            <div class="login-status" data-step="3">Подготовка панели</div>
+        </div>
+    </form>
 </div>
 {{ form.login_users_by_organization|json_script:"login-users-by-organization" }}
 <script>
@@ -40,6 +68,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const usersByOrganization = usersByOrganizationElement ? JSON.parse(usersByOrganizationElement.textContent) : {};
     const passwordInput = document.querySelector("input[name='password']");
     const togglePassword = document.getElementById("togglePassword");
+    const loginForm = document.querySelector(".login-form");
+    const loginCard = document.querySelector(".login-card");
+    const loginSubmit = document.querySelector(".login-submit");
+    const submitText = document.querySelector(".login-submit__text");
+    const progressFill = document.querySelector(".login-progress__fill");
+    const statuses = Array.from(document.querySelectorAll(".login-status"));
+    const motionReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     function enhanceScrollableSelect(select) {
         if (!select || select.dataset.enhanced === "true") return null;
@@ -66,10 +101,10 @@ document.addEventListener("DOMContentLoaded", function () {
             maxHeight: "220px",
             overflowY: "auto",
             padding: "4px 0",
-            border: "1px solid #86b7fe",
-            borderRadius: "0.375rem",
+            border: "1px solid rgba(151, 172, 230, 0.8)",
+            borderRadius: "16px",
             background: "#fff",
-            boxShadow: "0 0.5rem 1rem rgba(15, 23, 42, 0.12)",
+            boxShadow: "0 18px 45px rgba(32, 40, 69, 0.16)",
         });
 
         select.parentNode.insertBefore(wrapper, select.nextSibling);
@@ -108,18 +143,18 @@ document.addEventListener("DOMContentLoaded", function () {
                     padding: "8px 12px",
                     border: "0",
                     borderRadius: "0",
-                    background: option.selected ? "#0d6efd" : "#fff",
+                    background: option.selected ? "var(--brand)" : "#fff",
                     color: option.selected ? "#fff" : "#212529",
                     font: "inherit",
                     textAlign: "left",
                     cursor: "pointer",
                 });
                 item.addEventListener("mouseenter", function () {
-                    item.style.background = "#0d6efd";
+                    item.style.background = "var(--brand)";
                     item.style.color = "#fff";
                 });
                 item.addEventListener("mouseleave", function () {
-                    item.style.background = option.selected ? "#0d6efd" : "#fff";
+                    item.style.background = option.selected ? "var(--brand)" : "#fff";
                     item.style.color = option.selected ? "#fff" : "#212529";
                 });
                 if (option.selected) item.classList.add("is-selected");
@@ -187,6 +222,51 @@ document.addEventListener("DOMContentLoaded", function () {
         togglePassword.addEventListener("click", function () {
             passwordInput.type = passwordInput.type === "password" ? "text" : "password";
             togglePassword.textContent = passwordInput.type === "password" ? "Показать" : "Скрыть";
+        });
+    }
+
+    if (loginForm && loginSubmit) {
+        loginForm.addEventListener("submit", function (event) {
+            if (loginForm.dataset.submitting === "true") return;
+            if (!loginForm.checkValidity()) return;
+
+            event.preventDefault();
+            loginForm.dataset.submitting = "true";
+            loginForm.classList.add("is-submitting");
+            if (loginCard) loginCard.classList.add("is-validating");
+            loginSubmit.disabled = true;
+            if (submitText) submitText.textContent = "Входим...";
+
+            const steps = [
+                { index: 0, progress: 24, delay: 0 },
+                { index: 1, progress: 52, delay: 520 },
+                { index: 2, progress: 78, delay: 1080 },
+                { index: 3, progress: 100, delay: 1640 },
+            ];
+            const finalDelay = motionReduced ? 180 : 2300;
+
+            if (motionReduced) {
+                statuses.forEach((status) => status.classList.add("is-visible", "is-done"));
+                if (progressFill) progressFill.style.width = "100%";
+            } else {
+                steps.forEach((step) => {
+                    window.setTimeout(function () {
+                        statuses.forEach((status, position) => {
+                            status.classList.toggle("is-visible", position <= step.index);
+                            status.classList.toggle("is-done", position < step.index);
+                        });
+                        if (progressFill) progressFill.style.width = step.progress + "%";
+                    }, step.delay);
+                });
+            }
+
+            window.setTimeout(function () {
+                if (loginCard) {
+                    loginCard.classList.remove("is-validating");
+                    loginCard.classList.add("is-loading");
+                }
+                HTMLFormElement.prototype.submit.call(loginForm);
+            }, finalDelay);
         });
     }
     syncUsers();
